@@ -14,14 +14,28 @@ Key concepts:
       The worker must ACK (acknowledge completion) or NACK (report failure)
       to resolve the task. This prevents tasks from silently disappearing
       if a worker crashes mid-execution.
+
+Concurrency model:
+    Even though asyncio is single-threaded, coroutines can interleave at
+    every `await` point. Consider this scenario:
+        1. Coroutine A calls dequeue(), checks the queue is non-empty
+        2. Coroutine A hits an `await` (e.g., logging I/O)
+        3. Coroutine B calls dequeue(), also sees the queue is non-empty
+        4. Both pop the same item — data corruption!
+
+    The asyncio.Lock prevents this by ensuring only one coroutine at a
+    time can be inside a critical section (the code between `async with
+    self._lock:`). It's the async equivalent of threading.Lock, but
+    cooperative rather than OS-managed.
 """
 
+import asyncio
 import uuid
 import time
 import logging
-from collections import defaultdict, deque
+from collections import deque
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -32,20 +46,20 @@ class Task:
     Represents a single unit of work in the queue.
 
     Attributes:
-        task_id:     Unique identifier (UUID4 string).
-        queue_name:  Which named queue this task belongs to.
-        payload:     The actual task data (arbitrary dict from the producer).
-        status:      One of "pending", "in_flight", "completed", "failed".
-        created_at:  Unix timestamp when the task was enqueued.
-        worker_id:   ID of the worker currently processing this task (if any).
-        attempts:    How many times this task has been attempted.
+        task_id:         Unique identifier (UUID4 string).
+        queue_name:      Which named queue this task belongs to.
+        payload:         The actual task data (arbitrary dict from the producer).
+        status:          One of "pending", "in_flight", "done", "failed".
+        created_at:      Unix timestamp when the task was enqueued.
+        assigned_worker: ID of the worker currently processing this task (if any).
+        attempts:        How many times this task has been attempted.
     """
     task_id: str
     queue_name: str
     payload: dict
     status: str = "pending"
     created_at: float = field(default_factory=time.time)
-    worker_id: Optional[str] = None
+    assigned_worker: Optional[str] = None
     attempts: int = 0
 
 
@@ -58,25 +72,29 @@ class QueueManager:
     - Enqueuing tasks (PRODUCE command)
     - Dequeuing tasks and assigning them to a specific worker (CONSUME command)
     - Acknowledging successful completion (ACK command)
-    - Handling task failure and returning tasks to the queue (NACK command)
+    - Handling task failure (NACK command) — marks as failed and returns
+      the Task object so the caller (broker/retry layer) can decide
+      whether to re-queue it or send it to the dead-letter queue
 
-    Thread safety note:
-        In Week 1, the broker runs on a single asyncio event loop, so
-        all queue operations are effectively single-threaded (no two
-        coroutines run concurrently within the loop). We don't need
-        locks here. If we later add multiprocessing to the broker
-        itself, we would need to revisit this.
+    Why asyncio.Lock?
+        asyncio coroutines are cooperative — they yield control at every
+        `await`. Without a lock, two coroutines could interleave their
+        reads and writes to the same queue, causing duplicated or lost
+        tasks. The lock guarantees atomicity of each queue operation.
     """
 
     def __init__(self):
         # Pending queues: queue_name -> deque of Task objects waiting to be consumed
-        self._queues: dict[str, deque[Task]] = defaultdict(deque)
+        self._queues: Dict[str, deque] = {}
 
         # In-flight registry: task_id -> Task object currently being processed
-        self._in_flight: dict[str, Task] = {}
+        self._in_flight: Dict[str, Task] = {}
 
-        # Completed/failed archive: task_id -> Task (for inspection and debugging)
-        self._completed: dict[str, Task] = {}
+        # Completed archive: task_id -> Task (for inspection and debugging)
+        self._completed: Dict[str, Task] = {}
+
+        # Asyncio lock for safe concurrent access within the event loop
+        self._lock = asyncio.Lock()
 
         # Stats counters
         self._total_enqueued: int = 0
@@ -85,6 +103,17 @@ class QueueManager:
         self._total_nacked: int = 0
 
         logger.info("QueueManager initialized (in-memory mode)")
+
+    def _ensure_queue(self, queue_name: str):
+        """
+        Create the named queue if it doesn't already exist.
+
+        This is called inside the lock, so it's safe from races.
+        Using a helper keeps the enqueue/dequeue methods clean.
+        """
+        if queue_name not in self._queues:
+            self._queues[queue_name] = deque()
+            logger.info(f"Created new queue: '{queue_name}'")
 
     async def enqueue(self, queue_name: str, payload: dict) -> str:
         """
@@ -106,12 +135,16 @@ class QueueManager:
             queue_name=queue_name,
             payload=payload,
         )
-        self._queues[queue_name].append(task)
-        self._total_enqueued += 1
+
+        async with self._lock:
+            self._ensure_queue(queue_name)
+            self._queues[queue_name].append(task)
+            self._total_enqueued += 1
+            depth = len(self._queues[queue_name])
 
         logger.info(
             f"Enqueued task {task_id[:8]}... to queue '{queue_name}' "
-            f"(depth: {len(self._queues[queue_name])})"
+            f"(depth: {depth})"
         )
         return task_id
 
@@ -128,19 +161,21 @@ class QueueManager:
             worker_id:  ID of the worker requesting a task.
 
         Returns:
-            A dict with task_id and payload if a task was available,
-            or None if the queue is empty.
+            A dict with task_id, queue_name, payload, and attempts if a
+            task was available, or None if the queue is empty.
         """
-        queue = self._queues.get(queue_name)
-        if not queue:
-            return None
+        async with self._lock:
+            self._ensure_queue(queue_name)
 
-        task = queue.popleft()
-        task.status = "in_flight"
-        task.worker_id = worker_id
-        task.attempts += 1
-        self._in_flight[task.task_id] = task
-        self._total_dequeued += 1
+            if not self._queues[queue_name]:
+                return None
+
+            task = self._queues[queue_name].popleft()
+            task.status = "in_flight"
+            task.assigned_worker = worker_id
+            task.attempts += 1
+            self._in_flight[task.task_id] = task
+            self._total_dequeued += 1
 
         logger.info(
             f"Dequeued task {task.task_id[:8]}... from '{queue_name}' "
@@ -166,66 +201,106 @@ class QueueManager:
         Returns:
             True if the task was found and acknowledged, False otherwise.
         """
-        task = self._in_flight.pop(task_id, None)
-        if task is None:
-            logger.warning(f"ACK for unknown in-flight task: {task_id[:8]}...")
-            return False
+        async with self._lock:
+            task = self._in_flight.pop(task_id, None)
+            if task is None:
+                logger.warning(f"ACK for unknown in-flight task: {task_id[:8]}...")
+                return False
 
-        task.status = "completed"
-        self._completed[task_id] = task
-        self._total_acked += 1
+            task.status = "done"
+            self._completed[task_id] = task
+            self._total_acked += 1
 
         logger.info(f"Task {task_id[:8]}... acknowledged (completed)")
         return True
 
-    async def negative_acknowledge(self, task_id: str) -> bool:
+    async def negative_acknowledge(self, task_id: str) -> Optional[Task]:
         """
-        Mark a task as failed (NACK) and return it to its queue for retry.
+        Mark a task as failed (NACK).
 
-        The task goes back to the front of its queue so it gets
-        re-attempted before newer tasks. Its attempt counter is preserved
-        so we can track how many times it's been retried.
+        Unlike ACK, NACK does NOT automatically re-queue the task.
+        Instead, it marks the task as "failed" and returns the Task
+        object to the caller. The caller (broker or retry handler)
+        then decides what to do:
+
+            - If attempts < max_retries: re-enqueue the task
+            - If attempts >= max_retries: send to dead-letter queue
+
+        This separation of concerns is important because the queue
+        manager shouldn't know about retry policies or DLQ logic.
+        Those belong in higher-level components.
 
         Args:
             task_id: The UUID of the task that failed.
 
         Returns:
-            True if the task was found and re-queued, False otherwise.
+            The Task object if found, None if the task_id wasn't in flight.
         """
-        task = self._in_flight.pop(task_id, None)
-        if task is None:
-            logger.warning(f"NACK for unknown in-flight task: {task_id[:8]}...")
-            return False
+        async with self._lock:
+            task = self._in_flight.pop(task_id, None)
+            if task is None:
+                logger.warning(f"NACK for unknown in-flight task: {task_id[:8]}...")
+                return None
 
-        task.status = "pending"
-        task.worker_id = None
-        # Re-insert at the front of the queue so it gets retried next
-        self._queues[task.queue_name].appendleft(task)
-        self._total_nacked += 1
+            task.status = "failed"
+            self._total_nacked += 1
 
         logger.info(
-            f"Task {task_id[:8]}... NACKed, returned to queue "
-            f"'{task.queue_name}' (attempt #{task.attempts})"
+            f"Task {task_id[:8]}... NACKed (attempt #{task.attempts}) "
+            f"from queue '{task.queue_name}'"
         )
-        return True
+        return task
 
-    def get_queue_depth(self, queue_name: str) -> int:
+    async def requeue(self, task: Task, front: bool = True):
+        """
+        Return a previously failed task back to its queue for retry.
+
+        This is called by the broker/retry handler after a NACK,
+        if the task hasn't exceeded its maximum retry count.
+
+        Args:
+            task:  The Task object to re-enqueue.
+            front: If True, insert at the front of the queue (retry ASAP).
+                   If False, insert at the back (fair scheduling).
+        """
+        async with self._lock:
+            self._ensure_queue(task.queue_name)
+            task.status = "pending"
+            task.assigned_worker = None
+
+            if front:
+                self._queues[task.queue_name].appendleft(task)
+            else:
+                self._queues[task.queue_name].append(task)
+
+        position = "front" if front else "back"
+        logger.info(
+            f"Task {task.task_id[:8]}... re-queued at {position} of "
+            f"'{task.queue_name}' (will be attempt #{task.attempts + 1})"
+        )
+
+    def queue_depth(self, queue_name: str) -> int:
         """Return the number of pending tasks in a specific queue."""
-        return len(self._queues.get(queue_name, []))
+        return len(self._queues.get(queue_name, deque()))
 
-    def get_all_queue_names(self) -> list[str]:
+    def get_all_queue_names(self) -> list:
         """Return a list of all known queue names."""
         return list(self._queues.keys())
 
-    def get_in_flight_count(self) -> int:
+    def in_flight_count(self) -> int:
         """Return the total number of tasks currently being processed."""
         return len(self._in_flight)
+
+    def get_in_flight_tasks(self) -> Dict[str, Task]:
+        """Return a copy of the in-flight task registry."""
+        return dict(self._in_flight)
 
     def get_stats(self) -> dict:
         """
         Return a snapshot of queue manager statistics.
 
-        Useful for the metrics/observability layer.
+        Useful for the metrics/observability layer that we'll build
+        in Week 5.
         """
         return {
             "total_enqueued": self._total_enqueued,

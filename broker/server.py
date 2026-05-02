@@ -318,7 +318,16 @@ class BrokerServer:
 
     async def _handle_nack(self, message: dict, writer) -> dict:
         """
-        Handle NACK command — mark a task as failed and re-queue it.
+        Handle NACK command — mark a task as failed and re-queue for retry.
+
+        The flow is:
+            1. negative_acknowledge() marks the task as "failed" and
+               removes it from in-flight tracking
+            2. requeue() puts it back in the queue for another attempt
+
+        In Week 4 we'll add DLQ logic here: if a task has been NACKed
+        too many times, it goes to the dead-letter queue instead of
+        being re-queued.
 
         Expected message format:
             {"command": "NACK", "task_id": "uuid-here"}
@@ -328,10 +337,18 @@ class BrokerServer:
         if not task_id:
             return {"status": "error", "reason": "Missing 'task_id' field"}
 
-        success = await self.queue_manager.negative_acknowledge(task_id)
-        if success:
-            return {"status": "ok", "message": f"Task {task_id} returned to queue"}
-        return {"status": "error", "reason": f"Task {task_id} not found in-flight"}
+        task = await self.queue_manager.negative_acknowledge(task_id)
+        if task is None:
+            return {"status": "error", "reason": f"Task {task_id} not found in-flight"}
+
+        # For now, always re-queue. In Week 4 we'll check attempt count
+        # and route to DLQ if the task has exceeded max retries.
+        await self.queue_manager.requeue(task, front=True)
+        return {
+            "status": "ok",
+            "message": f"Task {task_id} returned to queue",
+            "attempts": task.attempts,
+        }
 
     # ── Server Lifecycle ───────────────────────────────────────────────
 
