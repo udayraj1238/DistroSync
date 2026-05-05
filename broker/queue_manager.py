@@ -312,3 +312,5 @@ class QueueManager:
                 name: len(q) for name, q in self._queues.items()
             },
         }
+
+# added async lock
