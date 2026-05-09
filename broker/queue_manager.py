@@ -279,6 +279,45 @@ class QueueManager:
             f"'{task.queue_name}' (will be attempt #{task.attempts + 1})"
         )
 
+    async def requeue_by_id(self, task_id: str) -> bool:
+        """
+        Requeue an in-flight task by its task_id.
+
+        Used by the WorkerRegistry when a dead worker is evicted.
+        The registry knows which task_ids were assigned to the dead worker
+        (from its in_flight_tasks set) but doesn't hold the Task objects
+        directly. This method bridges that gap.
+
+        The task is placed at the FRONT of its queue so it gets picked up
+        quickly by another healthy worker.
+
+        Args:
+            task_id: The UUID of the in-flight task to requeue.
+
+        Returns:
+            True if the task was found in-flight and requeued.
+            False if the task_id wasn't in the in-flight registry
+            (e.g., it was already ACKed by another path).
+        """
+        async with self._lock:
+            task = self._in_flight.pop(task_id, None)
+            if task is None:
+                logger.warning(
+                    f"requeue_by_id: task {task_id[:8]}... not found in-flight"
+                )
+                return False
+
+            task.status = "pending"
+            task.assigned_worker = None
+            self._ensure_queue(task.queue_name)
+            self._queues[task.queue_name].appendleft(task)
+
+        logger.info(
+            f"Task {task_id[:8]}... reassigned from dead worker, "
+            f"re-queued at front of '{task.queue_name}'"
+        )
+        return True
+
     def queue_depth(self, queue_name: str) -> int:
         """Return the number of pending tasks in a specific queue."""
         return len(self._queues.get(queue_name, deque()))
@@ -312,5 +351,3 @@ class QueueManager:
                 name: len(q) for name, q in self._queues.items()
             },
         }
-
-# added async lock

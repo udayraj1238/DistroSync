@@ -347,4 +347,4 @@ class WorkerRegistry:
             },
         }
 
-# rewrote worker registry
+# added eviction loop
