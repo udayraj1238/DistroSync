@@ -346,3 +346,5 @@ class WorkerRegistry:
                 for wid, w in self._workers.items()
             },
         }
+
+# rewrote worker registry
