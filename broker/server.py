@@ -82,7 +82,7 @@ class BrokerServer:
         self.host = host
         self.port = port
         self.queue_manager = QueueManager()
-        self.worker_registry = WorkerRegistry()
+        self.worker_registry = WorkerRegistry(queue_manager=self.queue_manager)
         self._server: asyncio.Server | None = None
         self._active_connections: int = 0
 
@@ -258,6 +258,10 @@ class BrokerServer:
 
         task = await self.queue_manager.dequeue(queue_name, worker_id)
         if task:
+            # Track this task as assigned to this worker.
+            # If the worker dies before ACKing, the eviction loop
+            # will use this to requeue the task.
+            await self.worker_registry.assign_task(worker_id, task["task_id"])
             return {"status": "ok", "task": task}
         return {"status": "empty"}
 
@@ -275,7 +279,7 @@ class BrokerServer:
             return {"status": "error", "reason": "Missing 'worker_id' field"}
 
         addr = writer.get_extra_info("peername")
-        is_new = self.worker_registry.register(worker_id, address=addr, queues=queues)
+        is_new = await self.worker_registry.register(worker_id, address=addr, queues=queues)
         return {
             "status": "ok",
             "registered": is_new,
@@ -294,7 +298,7 @@ class BrokerServer:
         if not worker_id:
             return {"status": "error", "reason": "Missing 'worker_id' field"}
 
-        found = self.worker_registry.record_heartbeat(worker_id)
+        found = await self.worker_registry.record_heartbeat(worker_id)
         if found:
             return {"status": "ok"}
         return {"status": "error", "reason": f"Unknown worker: {worker_id}"}
@@ -313,6 +317,10 @@ class BrokerServer:
 
         success = await self.queue_manager.acknowledge(task_id)
         if success:
+            # Remove from worker's in-flight tracking so eviction
+            # doesn't try to requeue an already-completed task
+            worker_id = message.get("worker_id", "")
+            await self.worker_registry.complete_task(worker_id, task_id)
             return {"status": "ok", "message": f"Task {task_id} acknowledged"}
         return {"status": "error", "reason": f"Task {task_id} not found in-flight"}
 
@@ -341,6 +349,10 @@ class BrokerServer:
         if task is None:
             return {"status": "error", "reason": f"Task {task_id} not found in-flight"}
 
+        # Remove from worker's in-flight tracking
+        worker_id = message.get("worker_id", "")
+        await self.worker_registry.complete_task(worker_id, task_id)
+
         # For now, always re-queue. In Week 4 we'll check attempt count
         # and route to DLQ if the task has exceeded max retries.
         await self.queue_manager.requeue(task, front=True)
@@ -366,6 +378,13 @@ class BrokerServer:
             self.handle_connection, self.host, self.port
         )
 
+        # Start the worker eviction loop as a background task.
+        # This checks every 2s for workers that missed their heartbeat
+        # deadline and reassigns their in-flight tasks.
+        self.worker_registry._eviction_task = asyncio.create_task(
+            self.worker_registry.start_eviction_loop()
+        )
+
         # Register signal handlers for graceful shutdown (Unix only)
         # On Windows, signal handling is more limited but Ctrl+C still works
         loop = asyncio.get_running_loop()
@@ -389,6 +408,8 @@ class BrokerServer:
         """
         if self._server:
             logger.info("Shutting down broker server...")
+            # Stop the eviction loop before closing the server
+            await self.worker_registry.stop_eviction_loop()
             self._server.close()
             await self._server.wait_closed()
             logger.info("Broker server stopped")
@@ -417,3 +438,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# wired eviction into server
