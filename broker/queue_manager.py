@@ -4,8 +4,17 @@ Queue Manager — In-memory task queue with named queue support.
 This module manages multiple named queues. Producers enqueue tasks
 into a specific queue by name, and workers dequeue from them.
 
-For now (Week 1), everything lives in memory. Crash safety via SQLite
+For now, everything lives in memory. Crash safety via SQLite
 WAL-mode persistence will be added in a later phase.
+
+Retry and Dead Letter Queue (DLQ) policy:
+    When a task fails (NACK), the QueueManager checks how many times
+    it has been attempted. If attempts < max_retries (default 3), it
+    goes back to the front of the queue for another try. If attempts
+    >= max_retries, it's moved to the Dead Letter Queue permanently.
+
+    This is the same pattern used by AWS SQS (maxReceiveCount), RabbitMQ
+    (x-death header + x-dead-letter-exchange), and Celery (max_retries).
 
 Key concepts:
     - Each "queue" is a named FIFO (First-In-First-Out) channel.
@@ -37,6 +46,8 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Optional, Dict
 
+from broker.dead_letter import DeadLetterQueue
+
 logger = logging.getLogger(__name__)
 
 
@@ -49,10 +60,12 @@ class Task:
         task_id:         Unique identifier (UUID4 string).
         queue_name:      Which named queue this task belongs to.
         payload:         The actual task data (arbitrary dict from the producer).
-        status:          One of "pending", "in_flight", "done", "failed".
+        status:          One of "pending", "in_flight", "done", "failed",
+                         "dead_lettered".
         created_at:      Unix timestamp when the task was enqueued.
         assigned_worker: ID of the worker currently processing this task (if any).
         attempts:        How many times this task has been attempted.
+        dead_lettered_at: Unix timestamp when moved to DLQ (if applicable).
     """
     task_id: str
     queue_name: str
@@ -72,9 +85,9 @@ class QueueManager:
     - Enqueuing tasks (PRODUCE command)
     - Dequeuing tasks and assigning them to a specific worker (CONSUME command)
     - Acknowledging successful completion (ACK command)
-    - Handling task failure (NACK command) — marks as failed and returns
-      the Task object so the caller (broker/retry layer) can decide
-      whether to re-queue it or send it to the dead-letter queue
+    - Handling task failure (NACK command) with retry counting:
+        * If attempts < max_retries: re-enqueue at front of queue
+        * If attempts >= max_retries: route to Dead Letter Queue (DLQ)
 
     Why asyncio.Lock?
         asyncio coroutines are cooperative — they yield control at every
@@ -83,7 +96,16 @@ class QueueManager:
         tasks. The lock guarantees atomicity of each queue operation.
     """
 
-    def __init__(self):
+    def __init__(self, max_retries: int = 3):
+        """
+        Initialize the QueueManager.
+
+        Args:
+            max_retries: Maximum number of attempts before a task is
+                         sent to the Dead Letter Queue. Default is 3.
+                         After 3 failed attempts, the task is considered
+                         permanently failed.
+        """
         # Pending queues: queue_name -> deque of Task objects waiting to be consumed
         self._queues: Dict[str, deque] = {}
 
@@ -93,6 +115,12 @@ class QueueManager:
         # Completed archive: task_id -> Task (for inspection and debugging)
         self._completed: Dict[str, Task] = {}
 
+        # Dead Letter Queue for permanently failed tasks
+        self.dead_letter_queue = DeadLetterQueue()
+
+        # Maximum retry attempts before DLQ routing
+        self.max_retries = max_retries
+
         # Asyncio lock for safe concurrent access within the event loop
         self._lock = asyncio.Lock()
 
@@ -101,8 +129,9 @@ class QueueManager:
         self._total_dequeued: int = 0
         self._total_acked: int = 0
         self._total_nacked: int = 0
+        self._total_dead_lettered: int = 0
 
-        logger.info("QueueManager initialized (in-memory mode)")
+        logger.info(f"QueueManager initialized (in-memory mode, max_retries={max_retries})")
 
     def _ensure_queue(self, queue_name: str):
         """
@@ -214,27 +243,35 @@ class QueueManager:
         logger.info(f"Task {task_id[:8]}... acknowledged (completed)")
         return True
 
-    async def negative_acknowledge(self, task_id: str) -> Optional[Task]:
+    async def negative_acknowledge(self, task_id: str) -> Optional[dict]:
         """
-        Mark a task as failed (NACK).
+        Mark a task as failed (NACK) and route it: retry or DLQ.
 
-        Unlike ACK, NACK does NOT automatically re-queue the task.
-        Instead, it marks the task as "failed" and returns the Task
-        object to the caller. The caller (broker or retry handler)
-        then decides what to do:
+        This is the retry policy decision point. When a task fails:
 
-            - If attempts < max_retries: re-enqueue the task
-            - If attempts >= max_retries: send to dead-letter queue
+            1. If attempts < max_retries (default 3):
+               Re-enqueue at the FRONT of the queue for priority retry.
+               The task keeps its attempt counter so the next failure
+               brings it closer to the DLQ threshold.
 
-        This separation of concerns is important because the queue
-        manager shouldn't know about retry policies or DLQ logic.
-        Those belong in higher-level components.
+            2. If attempts >= max_retries:
+               Move to the Dead Letter Queue. The task is considered
+               permanently failed and won't be retried automatically.
+               An operator can manually inspect and retry DLQ tasks.
+
+        Why handle retry logic here instead of in the broker?
+            The QueueManager owns the task lifecycle and the queue data
+            structures. Keeping the retry/DLQ decision here means:
+            - The broker's NACK handler stays simple
+            - The retry policy is in one place, easy to change
+            - The DLQ is co-located with the queue it protects
 
         Args:
             task_id: The UUID of the task that failed.
 
         Returns:
-            The Task object if found, None if the task_id wasn't in flight.
+            A dict with the outcome: {"action": "requeued"|"dead_lettered",
+            "attempts": N, "task_id": ...}, or None if task not found.
         """
         async with self._lock:
             task = self._in_flight.pop(task_id, None)
@@ -242,14 +279,45 @@ class QueueManager:
                 logger.warning(f"NACK for unknown in-flight task: {task_id[:8]}...")
                 return None
 
-            task.status = "failed"
             self._total_nacked += 1
 
-        logger.info(
-            f"Task {task_id[:8]}... NACKed (attempt #{task.attempts}) "
-            f"from queue '{task.queue_name}'"
-        )
-        return task
+            if task.attempts >= self.max_retries:
+                # Task has exhausted its retry budget -> Dead Letter Queue
+                task.status = "dead_lettered"
+                self._total_dead_lettered += 1
+
+        # DLQ or requeue happens outside the lock (DLQ has its own lock)
+        if task.status == "dead_lettered":
+            await self.dead_letter_queue.add(task)
+            logger.warning(
+                f"Task {task_id[:8]}... moved to DLQ after "
+                f"{task.attempts} attempts (queue: '{task.queue_name}')"
+            )
+            return {
+                "action": "dead_lettered",
+                "task_id": task.task_id,
+                "attempts": task.attempts,
+                "queue_name": task.queue_name,
+            }
+        else:
+            # Still has retries left -> re-enqueue at front for priority retry
+            task.status = "pending"
+            task.assigned_worker = None
+            async with self._lock:
+                self._ensure_queue(task.queue_name)
+                self._queues[task.queue_name].appendleft(task)
+
+            logger.info(
+                f"Task {task_id[:8]}... NACKed (attempt #{task.attempts}/{self.max_retries}), "
+                f"re-queued at front of '{task.queue_name}'"
+            )
+            return {
+                "action": "requeued",
+                "task_id": task.task_id,
+                "attempts": task.attempts,
+                "max_retries": self.max_retries,
+                "queue_name": task.queue_name,
+            }
 
     async def requeue(self, task: Task, front: bool = True):
         """
@@ -346,8 +414,11 @@ class QueueManager:
             "total_dequeued": self._total_dequeued,
             "total_acked": self._total_acked,
             "total_nacked": self._total_nacked,
+            "total_dead_lettered": self._total_dead_lettered,
             "in_flight": len(self._in_flight),
+            "max_retries": self.max_retries,
             "queues": {
                 name: len(q) for name, q in self._queues.items()
             },
+            "dlq": self.dead_letter_queue.get_stats(),
         }
