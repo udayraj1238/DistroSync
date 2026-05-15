@@ -326,16 +326,15 @@ class BrokerServer:
 
     async def _handle_nack(self, message: dict, writer) -> dict:
         """
-        Handle NACK command — mark a task as failed and re-queue for retry.
+        Handle NACK command — mark a task as failed.
 
-        The flow is:
-            1. negative_acknowledge() marks the task as "failed" and
-               removes it from in-flight tracking
-            2. requeue() puts it back in the queue for another attempt
+        The QueueManager's negative_acknowledge() now handles the retry
+        vs DLQ decision internally:
+            - If attempts < max_retries: task is re-queued for another try
+            - If attempts >= max_retries: task is moved to Dead Letter Queue
 
-        In Week 4 we'll add DLQ logic here: if a task has been NACKed
-        too many times, it goes to the dead-letter queue instead of
-        being re-queued.
+        The broker just needs to forward the result and clean up the
+        worker's in-flight tracking.
 
         Expected message format:
             {"command": "NACK", "task_id": "uuid-here"}
@@ -345,21 +344,23 @@ class BrokerServer:
         if not task_id:
             return {"status": "error", "reason": "Missing 'task_id' field"}
 
-        task = await self.queue_manager.negative_acknowledge(task_id)
-        if task is None:
+        result = await self.queue_manager.negative_acknowledge(task_id)
+        if result is None:
             return {"status": "error", "reason": f"Task {task_id} not found in-flight"}
 
         # Remove from worker's in-flight tracking
         worker_id = message.get("worker_id", "")
         await self.worker_registry.complete_task(worker_id, task_id)
 
-        # For now, always re-queue. In Week 4 we'll check attempt count
-        # and route to DLQ if the task has exceeded max retries.
-        await self.queue_manager.requeue(task, front=True)
         return {
             "status": "ok",
-            "message": f"Task {task_id} returned to queue",
-            "attempts": task.attempts,
+            "action": result["action"],
+            "attempts": result["attempts"],
+            "message": (
+                f"Task {task_id} moved to DLQ"
+                if result["action"] == "dead_lettered"
+                else f"Task {task_id} re-queued for retry"
+            ),
         }
 
     # ── Server Lifecycle ───────────────────────────────────────────────
@@ -439,4 +440,4 @@ def main():
 if __name__ == "__main__":
     main()
 
-# wired eviction into server
+# simplified nack
