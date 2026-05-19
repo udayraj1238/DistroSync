@@ -32,6 +32,7 @@ In-flight task tracking:
 import asyncio
 import time
 import logging
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Dict, Set, Optional
 
@@ -56,6 +57,8 @@ class WorkerInfo:
         last_heartbeat:   Unix timestamp of the most recent heartbeat.
         in_flight_tasks:  Set of task_ids currently assigned to this worker.
                           If the worker dies, these tasks get reassigned.
+        task_start_times: Maps task_id -> monotonic timestamp when it was
+                          assigned. Used to measure task completion latency.
         status:           One of "active", "evicted".
     """
     worker_id: str
@@ -64,6 +67,7 @@ class WorkerInfo:
     registered_at: float = field(default_factory=time.time)
     last_heartbeat: float = field(default_factory=time.time)
     in_flight_tasks: Set[str] = field(default_factory=set)
+    task_start_times: Dict[str, float] = field(default_factory=dict)
     status: str = "active"
 
 
@@ -109,6 +113,11 @@ class WorkerRegistry:
         # Eviction loop control
         self._eviction_task: Optional[asyncio.Task] = None
         self._running: bool = False
+
+        # Per-queue latency tracking (sliding window of recent latencies in ms)
+        # Used by the AdaptiveLoadShedder to gauge worker performance.
+        # Stores the last 100 task completion latencies per queue.
+        self._queue_latencies: Dict[str, deque] = {}
 
         # Stats
         self._total_evictions: int = 0
@@ -204,6 +213,9 @@ class WorkerRegistry:
         If the worker dies later, the eviction loop uses this set
         to know which tasks need to be reassigned.
 
+        Also records the assignment time (monotonic clock) so we can
+        measure task completion latency when the worker ACKs/NACKs.
+
         Args:
             worker_id: The worker receiving the task.
             task_id:   The task being assigned.
@@ -212,6 +224,7 @@ class WorkerRegistry:
             worker = self._workers.get(worker_id)
             if worker:
                 worker.in_flight_tasks.add(task_id)
+                worker.task_start_times[task_id] = time.monotonic()
 
     async def complete_task(self, worker_id: str, task_id: str):
         """
@@ -221,6 +234,9 @@ class WorkerRegistry:
         This prevents the eviction loop from trying to requeue a task
         that's already been handled.
 
+        Also calculates and records the task completion latency for the
+        queue's latency window (used by the AdaptiveLoadShedder).
+
         Args:
             worker_id: The worker that was processing the task.
             task_id:   The task that completed or failed.
@@ -229,6 +245,14 @@ class WorkerRegistry:
             worker = self._workers.get(worker_id)
             if worker:
                 worker.in_flight_tasks.discard(task_id)
+
+                # Calculate latency if we have the start time
+                start_time = worker.task_start_times.pop(task_id, None)
+                if start_time is not None:
+                    latency_ms = (time.monotonic() - start_time) * 1000
+                    # Record latency for each queue this worker serves
+                    for queue_name in worker.queues:
+                        self._record_latency(queue_name, latency_ms)
 
     async def evict_dead_workers(self):
         """
@@ -312,6 +336,47 @@ class WorkerRegistry:
             self._eviction_task = None
         logger.info("Eviction loop stopped")
 
+    def _record_latency(self, queue_name: str, latency_ms: float):
+        """
+        Record a task completion latency for a specific queue.
+
+        Maintains a sliding window of the last 100 latencies per queue.
+        The window size is a tradeoff:
+            - Too small (e.g., 10): single outliers skew the average
+            - Too large (e.g., 10000): adapts too slowly to changes
+            - 100: stable enough for smoothing, responsive enough for
+              detecting sustained slowdowns
+
+        Args:
+            queue_name:  The queue the task belonged to.
+            latency_ms:  Completion time in milliseconds.
+        """
+        if queue_name not in self._queue_latencies:
+            self._queue_latencies[queue_name] = deque(maxlen=100)
+        self._queue_latencies[queue_name].append(latency_ms)
+
+    def average_latency_ms(self, queue_name: str) -> float:
+        """
+        Return the average task completion latency for a queue.
+
+        Uses the sliding window of recent completions. Returns 0.0 if
+        no latency data is available yet (new queue, no tasks completed).
+
+        This is called by the AdaptiveLoadShedder to adjust the token
+        fill rate. High average latency = workers are struggling =
+        reduce the fill rate = throttle producers.
+
+        Args:
+            queue_name: The queue to get latency for.
+
+        Returns:
+            Average latency in milliseconds, or 0.0 if no data.
+        """
+        samples = self._queue_latencies.get(queue_name)
+        if not samples:
+            return 0.0
+        return sum(samples) / len(samples)
+
     def get_worker(self, worker_id: str) -> Optional[WorkerInfo]:
         """Return the WorkerInfo for a specific worker, or None."""
         return self._workers.get(worker_id)
@@ -336,6 +401,13 @@ class WorkerRegistry:
             "active_workers": active,
             "total_evictions": self._total_evictions,
             "total_tasks_reassigned": self._total_tasks_reassigned,
+            "queue_latencies": {
+                name: {
+                    "average_ms": self.average_latency_ms(name),
+                    "sample_count": len(samples),
+                }
+                for name, samples in self._queue_latencies.items()
+            },
             "workers": {
                 wid: {
                     "status": w.status,
@@ -346,5 +418,3 @@ class WorkerRegistry:
                 for wid, w in self._workers.items()
             },
         }
-
-# added eviction loop
