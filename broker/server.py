@@ -47,6 +47,7 @@ import sys
 
 from broker.queue_manager import QueueManager
 from broker.worker_registry import WorkerRegistry
+from broker.load_shedder import AdaptiveLoadShedder
 
 # Configure logging to show timestamps, level, and module name
 logging.basicConfig(
@@ -83,6 +84,10 @@ class BrokerServer:
         self.port = port
         self.queue_manager = QueueManager()
         self.worker_registry = WorkerRegistry(queue_manager=self.queue_manager)
+        self.load_shedder = AdaptiveLoadShedder(
+            queue_manager=self.queue_manager,
+            worker_registry=self.worker_registry,
+        )
         self._server: asyncio.Server | None = None
         self._active_connections: int = 0
 
@@ -220,12 +225,19 @@ class BrokerServer:
 
     async def _handle_produce(self, message: dict, writer) -> dict:
         """
-        Handle PRODUCE command — add a task to a queue.
+        Handle PRODUCE command — add a task to a queue (with rate limiting).
+
+        The flow:
+            1. Validate the message fields
+            2. Ask the AdaptiveLoadShedder if this request is allowed
+            3. If rate-limited: return retry_after hint to the producer
+            4. If allowed: enqueue the task normally
+
+        The load shedder checks the queue's token bucket, which refills
+        at a rate adjusted by current queue depth and worker latency.
 
         Expected message format:
             {"command": "PRODUCE", "queue": "queue_name", "task": {...}}
-
-        The "task" field is the actual payload the worker will receive.
         """
         queue_name = message.get("queue")
         task_payload = message.get("task")
@@ -234,6 +246,19 @@ class BrokerServer:
             return {"status": "error", "reason": "Missing 'queue' field"}
         if task_payload is None:
             return {"status": "error", "reason": "Missing 'task' field"}
+
+        # Check the token bucket before enqueuing
+        allowed, retry_after = await self.load_shedder.check_and_consume(queue_name)
+        if not allowed:
+            logger.debug(
+                f"Rate limiting producer on queue '{queue_name}'. "
+                f"Retry after {retry_after:.2f}s"
+            )
+            return {
+                "status": "rate_limited",
+                "retry_after_seconds": retry_after,
+                "reason": "Queue overloaded. Please back off.",
+            }
 
         task_id = await self.queue_manager.enqueue(queue_name, task_payload)
         return {"status": "ok", "task_id": task_id}
@@ -439,5 +464,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# simplified nack
