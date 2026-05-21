@@ -372,5 +372,3 @@ class BaseWorker:
             "tasks_completed": self._tasks_completed,
             "tasks_failed": self._tasks_failed,
         }
-
-# added heartbeat loop
