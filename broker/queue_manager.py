@@ -177,6 +177,49 @@ class QueueManager:
         )
         return task_id
 
+    async def enqueue_recovered(self, queue_name: str, task_id: str,
+                                payload: dict, attempts: int = 0) -> str:
+        """
+        Re-enqueue a task recovered from persistent storage after a crash.
+
+        Unlike enqueue(), this method preserves the original task_id and
+        attempt count. This is critical for crash recovery because:
+            - The task_id must match what's in the WAL store
+            - The attempt count must be preserved so DLQ routing still
+              works correctly (a task at attempt 2/3 shouldn't restart at 0)
+
+        Called by BrokerServer.start() during the recovery phase, before
+        the server begins accepting new connections.
+
+        Args:
+            queue_name: The queue this task belongs to.
+            task_id:    The original UUID from the WAL store.
+            payload:    The task's payload data.
+            attempts:   How many times this task was previously attempted.
+
+        Returns:
+            The task_id (same as the input, for consistency with enqueue).
+        """
+        task = Task(
+            task_id=task_id,
+            queue_name=queue_name,
+            payload=payload,
+            status="pending",
+        )
+        task.attempts = attempts
+
+        async with self._lock:
+            self._ensure_queue(queue_name)
+            self._queues[queue_name].append(task)
+            self._total_enqueued += 1
+            depth = len(self._queues[queue_name])
+
+        logger.info(
+            f"Recovered task {task_id[:8]}... to queue '{queue_name}' "
+            f"(depth: {depth}, prior attempts: {attempts})"
+        )
+        return task_id
+
     async def dequeue(self, queue_name: str, worker_id: str) -> Optional[dict]:
         """
         Pull the next pending task from the specified queue.

@@ -45,9 +45,10 @@ import signal
 import logging
 import sys
 
-from broker.queue_manager import QueueManager
+from broker.queue_manager import QueueManager, Task
 from broker.worker_registry import WorkerRegistry
 from broker.load_shedder import AdaptiveLoadShedder
+from persistence.wal_store import WALStore
 
 # Configure logging to show timestamps, level, and module name
 logging.basicConfig(
@@ -72,13 +73,16 @@ class BrokerServer:
         - WorkerRegistry: tracks which workers are connected and alive
     """
 
-    def __init__(self, host: str = "0.0.0.0", port: int = 5555):
+    def __init__(self, host: str = "0.0.0.0", port: int = 5555,
+                 db_path: str = None):
         """
         Initialize the broker server.
 
         Args:
-            host: The IP address to bind to. "0.0.0.0" means all interfaces.
-            port: The TCP port to listen on. 5555 is our default.
+            host:    The IP address to bind to. "0.0.0.0" means all interfaces.
+            port:    The TCP port to listen on. 5555 is our default.
+            db_path: Path to the SQLite database for crash-safe persistence.
+                     If None, persistence is disabled (in-memory only).
         """
         self.host = host
         self.port = port
@@ -88,6 +92,13 @@ class BrokerServer:
             queue_manager=self.queue_manager,
             worker_registry=self.worker_registry,
         )
+
+        # Optional WAL-mode persistence layer
+        self.wal_store: WALStore | None = None
+        if db_path:
+            self.wal_store = WALStore(db_path)
+            logger.info(f"Persistence enabled: {db_path}")
+
         self._server: asyncio.Server | None = None
         self._active_connections: int = 0
 
@@ -261,6 +272,16 @@ class BrokerServer:
             }
 
         task_id = await self.queue_manager.enqueue(queue_name, task_payload)
+
+        # Persist the new task to WAL store for crash safety
+        if self.wal_store:
+            task_obj = self.queue_manager._queues.get(queue_name, [None])
+            # Retrieve the Task we just enqueued (it's the last one added)
+            for t in reversed(list(self.queue_manager._queues.get(queue_name, []))):
+                if t.task_id == task_id:
+                    self.wal_store.save_task(t)
+                    break
+
         return {"status": "ok", "task_id": task_id}
 
     async def _handle_consume(self, message: dict, writer) -> dict:
@@ -287,6 +308,15 @@ class BrokerServer:
             # If the worker dies before ACKing, the eviction loop
             # will use this to requeue the task.
             await self.worker_registry.assign_task(worker_id, task["task_id"])
+
+            # Persist status change: pending -> in_flight
+            if self.wal_store:
+                self.wal_store.update_task_status(
+                    task["task_id"], "in_flight",
+                    attempts=task["attempts"],
+                    assigned_worker=worker_id,
+                )
+
             return {"status": "ok", "task": task}
         return {"status": "empty"}
 
@@ -346,6 +376,11 @@ class BrokerServer:
             # doesn't try to requeue an already-completed task
             worker_id = message.get("worker_id", "")
             await self.worker_registry.complete_task(worker_id, task_id)
+
+            # Persist status change: in_flight -> done
+            if self.wal_store:
+                self.wal_store.update_task_status(task_id, "done")
+
             return {"status": "ok", "message": f"Task {task_id} acknowledged"}
         return {"status": "error", "reason": f"Task {task_id} not found in-flight"}
 
@@ -377,6 +412,30 @@ class BrokerServer:
         worker_id = message.get("worker_id", "")
         await self.worker_registry.complete_task(worker_id, task_id)
 
+        # Persist the outcome: requeued or dead-lettered
+        if self.wal_store:
+            if result["action"] == "dead_lettered":
+                # Build a minimal Task-like object for DLQ storage
+                task_stub = Task(
+                    task_id=task_id,
+                    queue_name=result["queue_name"],
+                    payload={},
+                )
+                task_stub.attempts = result["attempts"]
+                # Try to get the real payload from the DLQ
+                dlq_tasks = await self.queue_manager.dead_letter_queue.peek(limit=100)
+                for dt in dlq_tasks:
+                    if dt["task_id"] == task_id:
+                        task_stub.payload = dt["payload"]
+                        break
+                self.wal_store.add_to_dlq(task_stub, "max retries exceeded")
+            else:
+                # Task was requeued — update status back to pending
+                self.wal_store.update_task_status(
+                    task_id, "pending",
+                    attempts=result["attempts"],
+                )
+
         return {
             "status": "ok",
             "action": result["action"],
@@ -394,12 +453,42 @@ class BrokerServer:
         """
         Start the TCP server and serve forever.
 
-        asyncio.start_server() creates a TCP server that calls
-        handle_connection() for every new incoming connection.
-        Each connection runs as its own coroutine on the event loop.
+        Startup sequence:
+            1. Recover unfinished tasks from the WAL store (if persistence enabled)
+            2. Start the TCP server
+            3. Start the worker eviction loop
+            4. Register signal handlers for graceful shutdown
 
-        The server runs until it receives a shutdown signal (SIGINT/SIGTERM).
+        Crash recovery:
+            Before accepting any connections, we reload all tasks that were
+            pending or in-flight at the time of the last shutdown/crash.
+            In-flight tasks are treated as pending because the worker that
+            was processing them is no longer alive.
         """
+        # ── Phase 1: Crash recovery from WAL store ────────────────
+        if self.wal_store:
+            pending_tasks = self.wal_store.load_pending_tasks()
+            recovered = 0
+            for row in pending_tasks:
+                payload = json.loads(row["payload"])
+                await self.queue_manager.enqueue_recovered(
+                    queue_name=row["queue_name"],
+                    task_id=row["task_id"],
+                    payload=payload,
+                    attempts=row["attempts"],
+                )
+                # Reset status to pending in the WAL (was in_flight before crash)
+                self.wal_store.update_task_status(
+                    row["task_id"], "pending",
+                    attempts=row["attempts"],
+                )
+                recovered += 1
+            if recovered:
+                logger.info(
+                    f"Crash recovery: {recovered} tasks restored from WAL store"
+                )
+
+        # ── Phase 2: Start the TCP server ─────────────────────────
         self._server = await asyncio.start_server(
             self.handle_connection, self.host, self.port
         )
@@ -430,7 +519,8 @@ class BrokerServer:
         Gracefully shut down the server.
 
         Closes the listening socket so no new connections are accepted,
-        then allows existing connections to finish.
+        then allows existing connections to finish. If persistence is
+        enabled, the WAL store connection is closed cleanly.
         """
         if self._server:
             logger.info("Shutting down broker server...")
@@ -438,6 +528,12 @@ class BrokerServer:
             await self.worker_registry.stop_eviction_loop()
             self._server.close()
             await self._server.wait_closed()
+
+            # Close the WAL store connection
+            if self.wal_store:
+                self.wal_store.close()
+                logger.info("WAL store closed")
+
             logger.info("Broker server stopped")
 
 
