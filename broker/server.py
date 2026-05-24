@@ -224,6 +224,11 @@ class BrokerServer:
             "HEARTBEAT": self._handle_heartbeat,
             "ACK": self._handle_ack,
             "NACK": self._handle_nack,
+            # Admin commands for DLQ management and observability
+            "DLQ_LIST": self._handle_dlq_list,
+            "DLQ_REPLAY": self._handle_dlq_replay,
+            "DLQ_PURGE": self._handle_dlq_purge,
+            "STATS": self._handle_stats,
         }
 
         handler = handlers.get(command)
@@ -447,7 +452,177 @@ class BrokerServer:
             ),
         }
 
-    # ── Server Lifecycle ───────────────────────────────────────────────
+    # ── Admin Command Handlers ──────────────────────────────────────────────────
+
+    async def _handle_dlq_list(self, message: dict, writer) -> dict:
+        """
+        Handle DLQ_LIST command — inspect tasks in the Dead Letter Queue.
+
+        This is the operator's primary tool for understanding what failed
+        and why. Returns task details including payload, error, and attempt
+        count.
+
+        Supports optional queue filtering:
+            {"command": "DLQ_LIST"}                      → all DLQ tasks
+            {"command": "DLQ_LIST", "queue": "emails"}   → emails only
+            {"command": "DLQ_LIST", "limit": 5}          → top 5 tasks
+
+        Data sources:
+            - WAL store (persistent): primary source if persistence enabled
+            - In-memory DLQ: fallback when running without persistence
+        """
+        queue_name = message.get("queue")
+        limit = message.get("limit", 50)
+
+        if self.wal_store:
+            tasks = self.wal_store.get_dlq_tasks(
+                queue_name=queue_name, limit=limit
+            )
+            # Parse payload JSON strings back to dicts for readability
+            for t in tasks:
+                if isinstance(t.get("payload"), str):
+                    try:
+                        t["payload"] = json.loads(t["payload"])
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+        else:
+            tasks = await self.queue_manager.dead_letter_queue.peek(limit=limit)
+            if queue_name:
+                tasks = [t for t in tasks if t.get("queue_name") == queue_name]
+
+        return {
+            "status": "ok",
+            "count": len(tasks),
+            "tasks": tasks,
+        }
+
+    async def _handle_dlq_replay(self, message: dict, writer) -> dict:
+        """
+        Handle DLQ_REPLAY command — move a task from the DLQ back to its queue.
+
+        This is used after an operator has fixed the underlying issue
+        (e.g., patched a bug, restored a downstream service) and wants
+        to give the task another chance.
+
+        The task gets a fresh attempt counter so it has a full set of
+        retries available.
+
+        Expected message format:
+            {"command": "DLQ_REPLAY", "task_id": "uuid-here"}
+
+        Flow:
+            1. Remove from DLQ (WAL store or in-memory)
+            2. Re-enqueue into the original queue with fresh attempts
+            3. Persist the new task to WAL if enabled
+        """
+        task_id = message.get("task_id")
+        if not task_id:
+            return {"status": "error", "reason": "Missing 'task_id' field"}
+
+        if self.wal_store:
+            row = self.wal_store.replay_dlq_task(task_id)
+            if not row:
+                return {
+                    "status": "error",
+                    "reason": f"Task {task_id} not found in DLQ",
+                }
+            payload = row["payload"]
+            if isinstance(payload, str):
+                payload = json.loads(payload)
+            queue_name = row["queue_name"]
+
+            # Re-enqueue with a fresh task (new attempts = 0)
+            new_task_id = await self.queue_manager.enqueue(
+                queue_name, payload
+            )
+            # Persist the new task
+            for t in reversed(list(
+                self.queue_manager._queues.get(queue_name, [])
+            )):
+                if t.task_id == new_task_id:
+                    self.wal_store.save_task(t)
+                    break
+        else:
+            # In-memory only: use the DLQ's retry method
+            success = await self.queue_manager.dead_letter_queue.retry(
+                task_id, self.queue_manager
+            )
+            if not success:
+                return {
+                    "status": "error",
+                    "reason": f"Task {task_id} not found in DLQ",
+                }
+            new_task_id = task_id  # Same ID when using in-memory retry
+
+        logger.info(
+            f"DLQ replay: task {task_id[:8]}... replayed as {new_task_id[:8]}..."
+        )
+        return {
+            "status": "ok",
+            "action": "replayed",
+            "original_task_id": task_id,
+            "new_task_id": new_task_id,
+        }
+
+    async def _handle_dlq_purge(self, message: dict, writer) -> dict:
+        """
+        Handle DLQ_PURGE command — remove tasks from the Dead Letter Queue.
+
+        Use with caution: purged tasks are permanently deleted.
+
+        Expected message format:
+            {"command": "DLQ_PURGE"}                     → purge all
+            {"command": "DLQ_PURGE", "queue": "emails"}  → purge emails only
+        """
+        queue_name = message.get("queue")
+
+        if self.wal_store:
+            purged = self.wal_store.purge_dlq(queue_name)
+        else:
+            if queue_name:
+                # In-memory DLQ doesn't support per-queue purge natively,
+                # so we remove matching tasks individually
+                dlq = self.queue_manager.dead_letter_queue
+                to_remove = []
+                async with dlq._lock:
+                    for tid, task in dlq._tasks.items():
+                        if task.queue_name == queue_name:
+                            to_remove.append(tid)
+                for tid in to_remove:
+                    await dlq.remove(tid)
+                purged = len(to_remove)
+            else:
+                purged = await self.queue_manager.dead_letter_queue.purge()
+
+        logger.info(f"DLQ purge: {purged} tasks removed")
+        return {
+            "status": "ok",
+            "action": "purged",
+            "count": purged,
+        }
+
+    async def _handle_stats(self, message: dict, writer) -> dict:
+        """
+        Handle STATS command — return broker-wide statistics.
+
+        Aggregates stats from the queue manager, worker registry,
+        load shedder, and WAL store (if enabled).
+
+        Expected message format:
+            {"command": "STATS"}
+        """
+        stats = {
+            "status": "ok",
+            "queue_manager": self.queue_manager.get_stats(),
+            "worker_registry": self.worker_registry.get_stats(),
+            "load_shedder": self.load_shedder.get_stats(),
+            "active_connections": self._active_connections,
+        }
+        if self.wal_store:
+            stats["wal_store"] = self.wal_store.get_stats()
+        return stats
+
+    # ── Server Lifecycle ───────────────────────────────────────────────────────
 
     async def start(self):
         """
