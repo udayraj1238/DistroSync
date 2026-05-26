@@ -48,6 +48,8 @@ import sys
 from broker.queue_manager import QueueManager, Task
 from broker.worker_registry import WorkerRegistry
 from broker.load_shedder import AdaptiveLoadShedder
+from broker.metrics_collector import MetricsCollector
+from broker.http_api import HTTPAPIServer
 from persistence.wal_store import WALStore
 
 # Configure logging to show timestamps, level, and module name
@@ -74,30 +76,36 @@ class BrokerServer:
     """
 
     def __init__(self, host: str = "0.0.0.0", port: int = 5555,
-                 db_path: str = None):
+                 db_path: str = None, http_port: int = 8000):
         """
         Initialize the broker server.
 
         Args:
-            host:    The IP address to bind to. "0.0.0.0" means all interfaces.
-            port:    The TCP port to listen on. 5555 is our default.
-            db_path: Path to the SQLite database for crash-safe persistence.
-                     If None, persistence is disabled (in-memory only).
+            host:      The IP address to bind to. "0.0.0.0" means all interfaces.
+            port:      The TCP port to listen on. 5555 is our default.
+            db_path:   Path to the SQLite database for crash-safe persistence.
+                       If None, persistence is disabled (in-memory only).
+            http_port: The port for the HTTP dashboard/metrics API (default: 8000).
         """
         self.host = host
         self.port = port
+        self.http_port = http_port
         self.queue_manager = QueueManager()
         self.worker_registry = WorkerRegistry(queue_manager=self.queue_manager)
         self.load_shedder = AdaptiveLoadShedder(
             queue_manager=self.queue_manager,
             worker_registry=self.worker_registry,
         )
+        self.metrics = MetricsCollector()
 
         # Optional WAL-mode persistence layer
         self.wal_store: WALStore | None = None
         if db_path:
             self.wal_store = WALStore(db_path)
             logger.info(f"Persistence enabled: {db_path}")
+
+        # HTTP API server for the dashboard (initialized in start())
+        self.http_api: HTTPAPIServer | None = None
 
         self._server: asyncio.Server | None = None
         self._active_connections: int = 0
@@ -229,6 +237,7 @@ class BrokerServer:
             "DLQ_REPLAY": self._handle_dlq_replay,
             "DLQ_PURGE": self._handle_dlq_purge,
             "STATS": self._handle_stats,
+            "METRICS": self._handle_metrics,
         }
 
         handler = handlers.get(command)
@@ -278,6 +287,9 @@ class BrokerServer:
 
         task_id = await self.queue_manager.enqueue(queue_name, task_payload)
 
+        # Record metrics
+        self.metrics.record_produce(queue_name)
+
         # Persist the new task to WAL store for crash safety
         if self.wal_store:
             task_obj = self.queue_manager._queues.get(queue_name, [None])
@@ -313,6 +325,9 @@ class BrokerServer:
             # If the worker dies before ACKing, the eviction loop
             # will use this to requeue the task.
             await self.worker_registry.assign_task(worker_id, task["task_id"])
+
+            # Record metrics — start tracking latency for this task
+            self.metrics.record_consume(queue_name, task["task_id"])
 
             # Persist status change: pending -> in_flight
             if self.wal_store:
@@ -382,6 +397,10 @@ class BrokerServer:
             worker_id = message.get("worker_id", "")
             await self.worker_registry.complete_task(worker_id, task_id)
 
+            # Record metrics — compute processing latency
+            queue_name = message.get("queue", "unknown")
+            self.metrics.record_ack(queue_name, task_id)
+
             # Persist status change: in_flight -> done
             if self.wal_store:
                 self.wal_store.update_task_status(task_id, "done")
@@ -416,6 +435,12 @@ class BrokerServer:
         # Remove from worker's in-flight tracking
         worker_id = message.get("worker_id", "")
         await self.worker_registry.complete_task(worker_id, task_id)
+
+        # Record metrics
+        self.metrics.record_nack(
+            result["queue_name"], task_id,
+            dead_lettered=(result["action"] == "dead_lettered"),
+        )
 
         # Persist the outcome: requeued or dead-lettered
         if self.wal_store:
@@ -616,11 +641,75 @@ class BrokerServer:
             "queue_manager": self.queue_manager.get_stats(),
             "worker_registry": self.worker_registry.get_stats(),
             "load_shedder": self.load_shedder.get_stats(),
+            "metrics": self.metrics.get_stats(),
             "active_connections": self._active_connections,
         }
         if self.wal_store:
             stats["wal_store"] = self.wal_store.get_stats()
         return stats
+
+    async def _handle_metrics(self, message: dict, writer) -> dict:
+        """
+        Handle METRICS command -- return a full metrics snapshot.
+
+        This is the same data served by the HTTP /metrics endpoint,
+        but available over the TCP protocol for programmatic access.
+
+        Expected message format:
+            {"command": "METRICS"}
+        """
+        return await self._get_metrics_snapshot()
+
+    async def _get_metrics_snapshot(self) -> dict:
+        """
+        Build a complete metrics snapshot for the dashboard.
+
+        Combines data from the MetricsCollector (throughput, latency)
+        with live data from the QueueManager (queue depths, in-flight)
+        and WorkerRegistry (active workers, avg latency).
+        """
+        # Get queue names from both the queue manager and metrics collector
+        qm_names = list(self.queue_manager._queues.keys())
+        snapshot = self.metrics.snapshot(queue_names=qm_names)
+
+        # Fill in live queue depths from the queue manager
+        for name in qm_names:
+            if name in snapshot["queues"]:
+                snapshot["queues"][name]["depth"] = (
+                    self.queue_manager.queue_depth(name)
+                )
+
+        # Add worker stats
+        worker_stats = self.worker_registry.get_stats()
+        snapshot["workers"] = {
+            "active_count": worker_stats.get("active_workers", 0),
+            "total_registered": worker_stats.get("total_registered", 0),
+        }
+
+        # Add DLQ count
+        if self.wal_store:
+            dlq_tasks = self.wal_store.get_dlq_tasks()
+            snapshot["dlq"] = {"total_tasks": len(dlq_tasks)}
+        else:
+            dlq_tasks = await self.queue_manager.dead_letter_queue.peek(limit=1000)
+            snapshot["dlq"] = {"total_tasks": len(dlq_tasks)}
+
+        # Add in-flight count
+        snapshot["broker"]["in_flight_tasks"] = (
+            self.queue_manager.in_flight_count()
+        )
+        snapshot["broker"]["active_connections"] = self._active_connections
+        snapshot["status"] = "ok"
+
+        return snapshot
+
+    async def _get_dlq_listing(self) -> dict:
+        """Get DLQ listing for the HTTP API."""
+        return await self._handle_dlq_list({"command": "DLQ_LIST"}, None)
+
+    async def _get_stats_snapshot(self) -> dict:
+        """Get stats snapshot for the HTTP API."""
+        return await self._handle_stats({"command": "STATS"}, None)
 
     # ── Server Lifecycle ───────────────────────────────────────────────────────
 
@@ -668,6 +757,16 @@ class BrokerServer:
             self.handle_connection, self.host, self.port
         )
 
+        # ── Phase 3: Start the HTTP dashboard/metrics API ─────────
+        self.http_api = HTTPAPIServer(
+            host=self.host,
+            port=self.http_port,
+            metrics_handler=self._get_metrics_snapshot,
+            dlq_handler=self._get_dlq_listing,
+            stats_handler=self._get_stats_snapshot,
+        )
+        await self.http_api.start()
+
         # Start the worker eviction loop as a background task.
         # This checks every 2s for workers that missed their heartbeat
         # deadline and reassigns their in-flight tasks.
@@ -684,6 +783,7 @@ class BrokerServer:
 
         addrs = ", ".join(str(sock.getsockname()) for sock in self._server.sockets)
         logger.info(f"DistroSync Broker listening on {addrs}")
+        logger.info(f"Dashboard available at http://{self.host}:{self.http_port}")
         logger.info("Press Ctrl+C to stop")
 
         async with self._server:
@@ -701,6 +801,11 @@ class BrokerServer:
             logger.info("Shutting down broker server...")
             # Stop the eviction loop before closing the server
             await self.worker_registry.stop_eviction_loop()
+
+            # Stop the HTTP API server
+            if self.http_api:
+                await self.http_api.stop()
+
             self._server.close()
             await self._server.wait_closed()
 
@@ -721,11 +826,25 @@ def main():
         "--host", default="0.0.0.0", help="Host to bind to (default: 0.0.0.0)"
     )
     parser.add_argument(
-        "--port", type=int, default=5555, help="Port to listen on (default: 5555)"
+        "--port", type=int, default=5555,
+        help="TCP port to listen on (default: 5555)",
+    )
+    parser.add_argument(
+        "--http-port", type=int, default=8000,
+        help="HTTP port for dashboard/metrics (default: 8000)",
+    )
+    parser.add_argument(
+        "--db-path", default=None,
+        help="Path to SQLite database for persistence (default: in-memory)",
     )
     args = parser.parse_args()
 
-    broker = BrokerServer(host=args.host, port=args.port)
+    broker = BrokerServer(
+        host=args.host,
+        port=args.port,
+        http_port=args.http_port,
+        db_path=args.db_path,
+    )
 
     try:
         asyncio.run(broker.start())
