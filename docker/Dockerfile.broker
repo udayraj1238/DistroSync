@@ -1,0 +1,33 @@
+# ── DistroSync Broker ──────────────────────────────────────────
+# Slim Python image — no C dependencies needed (stdlib only)
+FROM python:3.12-slim
+
+# Metadata
+LABEL maintainer="DistroSync Team"
+LABEL description="DistroSync message broker with TCP + HTTP APIs"
+
+# Set working directory
+WORKDIR /app
+
+# Copy the source code
+COPY broker/ /app/broker/
+COPY persistence/ /app/persistence/
+COPY dashboard/ /app/dashboard/
+
+# Create data directory for SQLite WAL persistence
+RUN mkdir -p /app/data
+
+# Expose TCP (broker protocol) and HTTP (dashboard/metrics) ports
+EXPOSE 5555
+EXPOSE 8000
+
+# Health check: verify the TCP broker port is accepting connections
+HEALTHCHECK --interval=5s --timeout=3s --retries=3 \
+  CMD python -c "import socket; s=socket.create_connection(('localhost', 5555), 2); s.close()"
+
+# Run the broker with persistence enabled
+CMD ["python", "-m", "broker.server", \
+     "--host", "0.0.0.0", \
+     "--port", "5555", \
+     "--http-port", "8000", \
+     "--db-path", "/app/data/distrosync.db"]

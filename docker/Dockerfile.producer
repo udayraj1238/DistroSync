@@ -1,0 +1,66 @@
+# ── DistroSync Producer Simulator ──────────────────────────────
+# Generates a configurable stream of tasks for benchmarking
+FROM python:3.12-slim
+
+LABEL maintainer="DistroSync Team"
+LABEL description="DistroSync producer simulator for load testing"
+
+WORKDIR /app
+
+# Copy source code
+COPY broker/ /app/broker/
+COPY producer/ /app/producer/
+COPY persistence/ /app/persistence/
+
+# Environment variables
+ENV BROKER_HOST=broker
+ENV BROKER_PORT=5555
+ENV TASKS_PER_SECOND=200
+ENV QUEUE_NAME=tasks
+ENV TOTAL_TASKS=0
+
+# Run the producer simulator
+CMD ["python", "-c", "\
+import os, asyncio, sys, time, json, struct;\
+sys.path.insert(0, '/app');\
+\
+async def main():\
+    host = os.environ.get('BROKER_HOST', 'broker');\
+    port = int(os.environ.get('BROKER_PORT', '5555'));\
+    rate = int(os.environ.get('TASKS_PER_SECOND', '200'));\
+    queue = os.environ.get('QUEUE_NAME', 'tasks');\
+    total = int(os.environ.get('TOTAL_TASKS', '0'));\
+    \
+    print(f'Producer connecting to {host}:{port}');\
+    reader, writer = await asyncio.open_connection(host, port);\
+    print(f'Connected. Producing {rate} tasks/s to queue: {queue}');\
+    \
+    interval = 1.0 / rate if rate > 0 else 1.0;\
+    produced = 0;\
+    start = time.monotonic();\
+    \
+    while True:\
+        msg = json.dumps({'command': 'PRODUCE', 'queue': queue, 'task': {'job_id': produced, 'timestamp': time.time()}});\
+        data = msg.encode();\
+        writer.write(struct.pack('>I', len(data)) + data);\
+        await writer.drain();\
+        \
+        resp_len = await reader.readexactly(4);\
+        resp_data = await reader.readexactly(struct.unpack('>I', resp_len)[0]);\
+        \
+        produced += 1;\
+        if produced % 1000 == 0:\
+            elapsed = time.monotonic() - start;\
+            print(f'Produced {produced} tasks in {elapsed:.1f}s ({produced/elapsed:.1f}/s)');\
+        \
+        if total > 0 and produced >= total:\
+            break;\
+        \
+        await asyncio.sleep(interval);\
+    \
+    writer.close();\
+    await writer.wait_closed();\
+    print(f'Done. Produced {produced} tasks.');\
+\
+asyncio.run(main());\
+"]

@@ -1,0 +1,44 @@
+# ── DistroSync Worker ──────────────────────────────────────────
+# Runs a multiprocessing worker that consumes tasks from the broker
+FROM python:3.12-slim
+
+LABEL maintainer="DistroSync Team"
+LABEL description="DistroSync worker node — multiprocessing task consumer"
+
+WORKDIR /app
+
+# Copy source code
+COPY broker/ /app/broker/
+COPY worker/ /app/worker/
+COPY persistence/ /app/persistence/
+
+# Environment variables (overridden by docker-compose)
+ENV BROKER_HOST=broker
+ENV BROKER_PORT=5555
+ENV QUEUE_NAME=tasks
+ENV MAX_PROCESSES=4
+ENV WORKER_ID=""
+
+# Run the worker
+# The entrypoint script reads env vars and starts the worker
+CMD ["python", "-c", "\
+import os, asyncio, sys;\
+sys.path.insert(0, '/app');\
+from worker.base import WorkerBase;\
+\
+class DockerWorker(WorkerBase):\
+    async def process_task(self, task):\
+        import time;\
+        time.sleep(0.01);\
+        return {'status': 'completed', 'task_id': task.get('task_id', 'unknown')};\
+\
+async def main():\
+    host = os.environ.get('BROKER_HOST', 'broker');\
+    port = int(os.environ.get('BROKER_PORT', '5555'));\
+    queue = os.environ.get('QUEUE_NAME', 'tasks');\
+    worker_id = os.environ.get('WORKER_ID', f'worker-{os.getpid()}');\
+    w = DockerWorker(broker_host=host, broker_port=port, worker_id=worker_id, queues=[queue]);\
+    await w.start();\
+\
+asyncio.run(main());\
+"]
