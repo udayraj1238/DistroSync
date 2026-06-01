@@ -24,9 +24,9 @@ ENV WORKER_ID=""
 CMD ["python", "-c", "\
 import os, asyncio, sys;\
 sys.path.insert(0, '/app');\
-from worker.base import WorkerBase;\
+from worker.base_worker import BaseWorker;\
 \
-class DockerWorker(WorkerBase):\
+class DockerWorker(BaseWorker):\
     async def process_task(self, task):\
         import time;\
         time.sleep(0.01);\
