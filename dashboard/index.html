@@ -140,6 +140,34 @@
       color: var(--accent-red);
     }
 
+    .load-btn {
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(96, 165, 250, 0.3);
+      transition: all 0.3s ease;
+    }
+    
+    .load-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(96, 165, 250, 0.5);
+    }
+    
+    .load-btn:active {
+      transform: translateY(0);
+    }
+    
+    .load-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
     .status-dot {
       width: 8px;
       height: 8px;
@@ -483,6 +511,7 @@
         <h1>Distro<span>Sync</span> Broker</h1>
       </div>
       <div class="header-right">
+        <button id="load-test-btn" class="load-btn" onclick="triggerLoadTest()">&#x26A1; Run Load Test</button>
         <span class="uptime" id="uptime">--:--:--</span>
         <div class="status-badge" id="status-badge">
           <span class="status-dot"></span>
@@ -596,6 +625,7 @@
     // ── Configuration ───────────────────────────────────────────
     const METRICS_URL = `${window.location.protocol}//${window.location.hostname}:${window.location.port}/metrics`;
     const DLQ_URL = `${window.location.protocol}//${window.location.hostname}:${window.location.port}/metrics/dlq`;
+    const LOAD_TEST_URL = `${window.location.protocol}//${window.location.hostname}:${window.location.port}/admin/load-test`;
     const REFRESH_INTERVAL = 1000; // ms
 
     // ── State ───────────────────────────────────────────────────
@@ -605,6 +635,26 @@
     let connected = false;
 
     // ── Helpers ──────────────────────────────────────────────────
+    async function triggerLoadTest() {
+      const btn = document.getElementById('load-test-btn');
+      btn.disabled = true;
+      btn.innerHTML = '&#x23F3; Running...';
+      try {
+        const resp = await fetch(LOAD_TEST_URL, { method: 'POST' });
+        if (resp.ok) {
+           setTimeout(() => {
+             btn.disabled = false;
+             btn.innerHTML = '&#x26A1; Run Load Test';
+           }, 5000);
+        } else {
+           throw new Error('Failed to start');
+        }
+      } catch (err) {
+        alert("Could not start load test. Ensure broker is running.");
+        btn.disabled = false;
+        btn.innerHTML = '&#x26A1; Run Load Test';
+      }
+    }
     function formatUptime(seconds) {
       const h = Math.floor(seconds / 3600);
       const m = Math.floor((seconds % 3600) / 60);

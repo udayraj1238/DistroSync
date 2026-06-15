@@ -34,6 +34,7 @@ import asyncio
 import json
 import logging
 import os
+import sys
 from typing import Optional, Callable
 
 logger = logging.getLogger(__name__)
@@ -98,18 +99,20 @@ class HTTPAPIServer:
             method = parts[0]
             path = parts[1].split("?")[0]  # Strip query string
 
-            # Only support GET
-            if method != "GET":
+            # Only support GET and POST
+            if method not in ("GET", "POST"):
                 await self._send_response(
                     writer, 405, {"error": "Method not allowed"}
                 )
                 return
 
             # Route dispatch
-            if path == "/" or path == "/dashboard":
+            if method == "GET" and (path == "/" or path == "/dashboard"):
                 await self._serve_dashboard(writer)
-            elif path == "/metrics" or path == "/metrics/":
+            elif method == "GET" and (path == "/metrics" or path == "/metrics/"):
                 await self._serve_metrics(writer)
+            elif method == "POST" and path == "/admin/load-test":
+                await self._trigger_load_test(writer)
             elif path == "/metrics/dlq":
                 await self._serve_dlq(writer)
             elif path == "/stats":
@@ -262,12 +265,27 @@ class HTTPAPIServer:
         await self._send_response(writer, 200, dlq_data)
 
     async def _serve_stats(self, writer: asyncio.StreamWriter) -> None:
-        """Serve broker stats as JSON."""
+        """Serve internal broker stats."""
         if self._stats_handler:
-            stats = await self._stats_handler()
+            stats = self._stats_handler()
         else:
-            stats = {"error": "Stats handler not configured"}
+            stats = {"error": "Stats handler not registered"}
         await self._send_response(writer, 200, stats)
+
+    async def _trigger_load_test(self, writer: asyncio.StreamWriter) -> None:
+        """Trigger the load simulator asynchronously."""
+        try:
+            import subprocess
+            load_script = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                "tests", "load", "load_simulator.py"
+            )
+            # Spawn in background so we don't block
+            subprocess.Popen([sys.executable, load_script])
+            await self._send_response(writer, 200, {"status": "ok", "message": "Load test started"})
+        except Exception as e:
+            logger.error(f"Failed to start load test: {e}")
+            await self._send_response(writer, 500, {"status": "error", "error": str(e)})
 
     async def start(self) -> None:
         """Start the HTTP server."""
