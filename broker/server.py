@@ -165,6 +165,9 @@ class BrokerServer:
 
                 # Step 5: Send the response back to the client
                 await self._send_response(writer, response)
+                
+                # Prevent event loop starvation if data is constantly available
+                await asyncio.sleep(0)
 
         except asyncio.IncompleteReadError:
             # Client disconnected cleanly (or mid-message). This is normal.

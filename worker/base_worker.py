@@ -307,6 +307,7 @@ class BaseWorker:
                     await self._send({
                         "command": "ACK",
                         "task_id": task_id,
+                        "queue": self.queue_name,
                     })
                     self._tasks_completed += 1
                     logger.info(
@@ -321,9 +322,13 @@ class BaseWorker:
                     await self._send({
                         "command": "NACK",
                         "task_id": task_id,
+                        "queue": self.queue_name,
                         "error": str(e),
                     })
                     self._tasks_failed += 1
+
+                # Prevent event loop starvation if queue is endlessly full
+                await asyncio.sleep(0)
 
         except asyncio.CancelledError:
             logger.info(f"Worker {self.worker_id[:8]}... cancelled")
