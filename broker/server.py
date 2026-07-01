@@ -714,6 +714,26 @@ class BrokerServer:
         """Get stats snapshot for the HTTP API."""
         return await self._handle_stats({"command": "STATS"}, None)
 
+    async def _crash_worker_handler(self) -> dict:
+        import random
+        import time
+        workers = list(self.worker_registry._workers.values())
+        active = [w for w in workers if w.status == "active"]
+        if not active:
+            return {"status": "error", "message": "No active workers to crash"}
+        w = random.choice(active)
+        w.last_heartbeat = time.time() - 10.0
+        return {"status": "ok", "message": f"Worker {w.worker_id} crashed"}
+
+    async def _replay_dlq_handler(self) -> dict:
+        dlq_tasks = await self.queue_manager.dead_letter_queue.peek(limit=1000)
+        replayed = 0
+        for task in dlq_tasks:
+            success = await self.queue_manager.dead_letter_queue.retry(task["task_id"], self.queue_manager)
+            if success:
+                replayed += 1
+        return {"status": "ok", "message": f"Replayed {replayed} tasks"}
+
     # ── Server Lifecycle ───────────────────────────────────────────────────────
 
     async def start(self):
@@ -767,6 +787,8 @@ class BrokerServer:
             metrics_handler=self._get_metrics_snapshot,
             dlq_handler=self._get_dlq_listing,
             stats_handler=self._get_stats_snapshot,
+            crash_worker_handler=self._crash_worker_handler,
+            replay_dlq_handler=self._replay_dlq_handler,
         )
         await self.http_api.start()
 

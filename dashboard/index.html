@@ -546,220 +546,187 @@ footer{padding:28px 40px;border-top:1px solid var(--border);display:flex;justify
 </footer>
 
 <script>
-const sim=(function(){
-  const S={
-    running:false,flooded:false,
-    workers:[
-      {id:'wkr-a1f2b3c4',status:'idle',processed:0,latency:0},
-      {id:'wkr-d5e6f7a8',status:'idle',processed:0,latency:0},
-      {id:'wkr-b9c0d1e2',status:'idle',processed:0,latency:0},
-    ],
-    queues:{tasks:0,emails:0,reports:0},
-    inflight:0,tokens:200,fillRate:100,
-    history:Array(20).fill(0),
-    processed:0,rejected:0,evicted:0,restarts:0,
-    logs:[],logC:0,dlq:[],
-    latencies:[],p99:0,
-    start:Date.now()
+const sim = (function() {
+  const S = {
+    history: Array(20).fill(0),
+    logs: [],
+    logC: 0,
+    start: Date.now()
   };
-  const r=(a,b)=>Math.floor(Math.random()*(b-a)+a);
-  const rf=(a,b)=>Math.random()*(b-a)+a;
-  const rid=()=>Math.random().toString(36).substr(2,8);
-
-  function log(type,msg){
-    const t=new Date().toLocaleTimeString('en',{hour12:false});
-    S.logs.unshift({type,msg,t});
-    if(S.logs.length>40)S.logs.pop();
+  
+  function log(type, msg) {
+    const t = new Date().toLocaleTimeString('en', {hour12: false});
+    S.logs.unshift({type, msg, t});
+    if (S.logs.length > 40) S.logs.pop();
     S.logC++;
   }
 
-  function startLoad(){
-    S.running=true;S.flooded=false;
-    S.workers.forEach(w=>w.status='active');
-    log('info','Load started — 50 producers online');
-    log('sys','Worker pool active: '+S.workers.length+' workers');
-    setStatus('running','var(--teal)');
-    _set('d-simstatus','load running');
+  function setStatus(txt, col) {
+    const el = document.getElementById('d-status');
+    if (el) { el.textContent = txt; el.style.color = col; }
   }
 
-  function floodLoad(){
-    if(!S.running)startLoad();
-    S.flooded=true;
-    log('warn','5× overload started — token bucket filling');
-    log('warn','Queue pressure rising — adaptive throttle engaging');
-    setStatus('rate limiting active','var(--amber)');
-    _set('d-simstatus','5× overload');
-    setTimeout(()=>{S.flooded=false;log('info','Overload ended — queue draining');setStatus('recovering','var(--purple2)');_set('d-simstatus','recovering');},9000);
+  function _set(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
   }
 
-  function crashWorker(){
-    const alive=S.workers.filter(w=>w.status!=='dead');
-    if(!alive.length){log('err','No alive workers to crash');return;}
-    const w=alive[r(0,alive.length)];
-    const rescued=r(2,8);
-    w.status='dead';S.evicted++;
-    log('err','Worker '+w.id.slice(0,10)+' missed 3 heartbeats — evicted');
-    log('warn','Re-queuing '+rescued+' in-flight tasks from dead worker');
-    S.queues.tasks+=rescued;
-    setTimeout(()=>{
-      w.id='wkr-'+rid().slice(0,8);
-      w.status=S.running?'active':'idle';w.latency=0;
-      log('info','New worker '+w.id.slice(0,10)+' registered');
-      log('sys','Task reassignment complete');
-    },6200);
-  }
-
-  function replayDLQ(){
-    if(!S.dlq.length){log('warn','DLQ is empty — nothing to replay');return;}
-    const n=S.dlq.length;
-    S.queues.tasks+=n;S.dlq=[];
-    log('info','Replayed '+n+' tasks from DLQ back to queue');
-    log('sys','POST /admin/dlq/replay-all → 200 OK');
-  }
-
-  function setStatus(txt,col){
-    const el=document.getElementById('d-status');
-    if(el){el.textContent=txt;el.style.color=col;}
-  }
-
-  function tick(){
-    const total=Object.values(S.queues).reduce((a,b)=>a+b,0);
-    const depthFactor=Math.max(0.05,1-Math.max(0,(total-50)/(5000)));
-    const latFactor=Math.max(0.1,1-Math.max(0,(S.p99-200)/(20000)));
-    const adjRate=Math.max(5,S.fillRate*depthFactor*latFactor);
-    S.tokens=Math.min(200,S.tokens+adjRate*0.5);
-
-    if(S.running){
-      const demand=S.flooded?r(280,420):r(60,130);
-      const accept=Math.min(demand,Math.floor(S.tokens));
-      const rej=demand-accept;
-      S.tokens=Math.max(0,S.tokens-accept);
-      S.rejected+=rej;
-      S.queues.tasks=Math.max(0,S.queues.tasks+Math.floor(accept*.6));
-      S.queues.emails=Math.max(0,S.queues.emails+Math.floor(accept*.25));
-      S.queues.reports=Math.max(0,S.queues.reports+Math.floor(accept*.15));
-
-      S.workers.forEach(w=>{
-        if(w.status==='active'){
-          const proc=Math.min(r(8,22),S.queues.tasks);
-          S.queues.tasks=Math.max(0,S.queues.tasks-proc);
-          w.processed+=proc;S.processed+=proc;
-          w.latency=Math.round(S.flooded?rf(80,450):rf(12,65));
-          S.latencies.push(w.latency);
-          if(S.latencies.length>200)S.latencies.shift();
-          if(Math.random()<0.012&&S.dlq.length<6){
-            const tid='task-'+rid();
-            S.dlq.push({id:tid,reason:'exec exception',attempts:3});
-            log('err',tid.slice(0,16)+' → DLQ after 3 NACKs');
-          }
-          if(Math.random()<0.035)log('ok','task-'+rid().slice(0,8)+' ACKed by '+w.id.slice(0,10));
-        }
-      });
-
-      S.inflight=S.workers.filter(w=>w.status==='active').length*r(2,7);
-      if(rej>15)log('warn','Rate limiting: '+rej+' tasks, retry_after='+Math.round(1000/adjRate)+'ms');
-
-      S.history.push(accept*2);S.history.shift();
-      const sorted=[...S.latencies].sort((a,b)=>a-b);
-      S.p99=Math.round(sorted[Math.floor(sorted.length*.99)]||0);
-    } else {
-      S.queues.tasks=Math.max(0,S.queues.tasks-4);
-      S.queues.emails=Math.max(0,S.queues.emails-2);
-      S.queues.reports=Math.max(0,S.queues.reports-1);
-      S.inflight=Math.max(0,S.inflight-2);
-      S.history.push(0);S.history.shift();
+  async function post(url) {
+    try {
+      const res = await fetch(url, { method: 'POST' });
+      const data = await res.json();
+      if(data.status === 'ok') {
+        log('sys', data.message || `POST ${url} OK`);
+      } else {
+        log('err', data.error || data.message || 'Error');
+      }
+    } catch(e) {
+      log('err', 'Network error: ' + e.message);
     }
-    render();
-    setTimeout(tick,500);
   }
 
-  function render(){
-    const uptime=Math.floor((Date.now()-S.start)/1000);
-    const tpm=S.history[S.history.length-1]||0;
-    const total=Object.values(S.queues).reduce((a,b)=>a+b,0);
+  function startLoad() {
+    log('info', 'Triggering load test...');
+    post('/admin/load-test');
+  }
 
-    _set('d-tpm',Math.round(tpm).toLocaleString());
-    _set('d-p99',S.p99>0?S.p99:'—');
-    _set('d-inf',S.inflight);
-    _set('d-dlq',S.dlq.length);
-    _set('d-total-q',total+' total');
-    _set('d-uptime',uptime+'s');
-    _set('d-proc',S.processed.toLocaleString());
-    _set('d-rej',S.rejected.toLocaleString());
-    _set('d-evict',S.evicted);
-    _set('d-restarts',S.restarts);
+  function floodLoad() {
+    log('warn', 'Triggering 5x overload...');
+    post('/admin/flood');
+  }
 
-    const p99el=document.getElementById('d-p99');
-    if(p99el)p99el.style.color=S.p99>200?'var(--red)':S.p99>80?'var(--amber)':'var(--text)';
-    const p99sub=document.getElementById('d-p99-sub');
-    if(p99sub){p99sub.textContent=S.p99>200?'↑ elevated':S.p99>0?'nominal':'—';p99sub.className='dm-sub '+(S.p99>200?'c-err':S.p99>80?'c-warn':'c-neut');}
-    const dlqsub=document.getElementById('d-dlq-sub');
-    if(dlqsub){dlqsub.textContent=S.dlq.length>0?S.dlq.length+' awaiting replay':'clean';dlqsub.className='dm-sub '+(S.dlq.length>0?'c-warn':'c-neut');}
+  function crashWorker() {
+    log('warn', 'Sending crash command to random active worker...');
+    post('/admin/crash-worker');
+  }
 
-    const qcols={tasks:'var(--purple)',emails:'var(--blue)',reports:'var(--teal2)'};
-    document.getElementById('d-qbars').innerHTML=Object.entries(S.queues).map(([q,d])=>`
-      <div class="qbar-row"><div class="qbar-meta"><span class="qbar-name">${q}</span><span class="qbar-num">${d}</span></div><div class="qbar-bg"><div class="qbar-fill" style="width:${Math.min(100,(d/300)*100).toFixed(1)}%;background:${qcols[q]}"></div></div></div>`).join('');
+  function replayDLQ() {
+    log('info', 'Replaying Dead Letter Queue...');
+    post('/admin/dlq/replay-all');
+  }
 
-    const maxSp=Math.max(...S.history,1);
-    document.getElementById('d-spark').innerHTML=S.history.map((v,i)=>`<div class="spark-b" style="height:${Math.max(2,(v/maxSp)*46).toFixed(0)}px;background:var(--purple);opacity:${(0.3+0.7*(i/20)).toFixed(2)}"></div>`).join('');
+  async function poll() {
+    try {
+      const [mRes, dRes] = await Promise.all([
+        fetch('/metrics').catch(()=>null),
+        fetch('/metrics/dlq').catch(()=>null)
+      ]);
+      
+      let M = null;
+      if (mRes && mRes.ok) M = await mRes.json();
+      let D = null;
+      if (dRes && dRes.ok) D = await dRes.json();
+      
+      if(M && M.status === 'ok') {
+        render(M, D);
+        setStatus('connected', 'var(--teal)');
+      } else {
+        setStatus('disconnected', 'var(--red)');
+      }
+    } catch(e) {
+      setStatus('disconnected', 'var(--red)');
+    }
+    
+    setTimeout(poll, 1000);
+  }
 
-    const active=S.workers.filter(w=>w.status==='active').length;
-    _set('d-wcount',active+' active');
-    document.getElementById('d-workers').innerHTML=S.workers.map(w=>`
-      <div class="worker-item">
-        <div class="w-dot ${w.status==='active'?'wi-active':w.status==='dead'?'wi-dead':'wi-idle'}"></div>
-        <div class="w-id">${w.id}</div>
-        <div class="w-lat">${w.latency>0?w.latency+'ms':''}</div>
-        <div class="w-cnt">${w.processed.toLocaleString()}</div>
-        <div class="w-badge ${w.status==='active'?'wb-a':w.status==='dead'?'wb-d':'wb-i'}">${w.status}</div>
+  function render(M, D) {
+    const uptime = Math.floor((Date.now() - S.start) / 1000);
+    const tpm = M.overall ? M.overall.throughput_tpm : 0;
+    const p99 = M.overall ? M.overall.p99_latency_ms : 0;
+    
+    let totalQ = 0;
+    const qEntries = Object.entries(M.queues || {});
+    qEntries.forEach(([q, stat]) => totalQ += stat.depth);
+    
+    const inflight = M.broker ? M.broker.in_flight_tasks : 0;
+    const dlqCount = M.dlq ? M.dlq.total_tasks : 0;
+    
+    S.history.push(tpm);
+    S.history.shift();
+
+    _set('d-tpm', Math.round(tpm).toLocaleString());
+    _set('d-p99', p99 > 0 ? p99 : '—');
+    _set('d-inf', inflight);
+    _set('d-dlq', dlqCount);
+    _set('d-total-q', totalQ + ' total');
+    _set('d-uptime', uptime + 's');
+    
+    // Total processed could be summed over queues
+    let totalProc = 0;
+    qEntries.forEach(([q, stat]) => totalProc += (stat.total_processed || 0));
+    _set('d-proc', totalProc.toLocaleString());
+    
+    _set('d-evict', M.workers ? M.workers.evicted_count : 0);
+    _set('d-rej', '—'); // The token bucket rejects aren't easily exposed in metrics right now
+    _set('d-restarts', 0);
+
+    const p99el = document.getElementById('d-p99');
+    if (p99el) p99el.style.color = p99 > 200 ? 'var(--red)' : p99 > 80 ? 'var(--amber)' : 'var(--text)';
+    
+    const p99sub = document.getElementById('d-p99-sub');
+    if (p99sub) {
+      p99sub.textContent = p99 > 200 ? '↑ elevated' : p99 > 0 ? 'nominal' : '—';
+      p99sub.className = 'dm-sub ' + (p99 > 200 ? 'c-err' : p99 > 80 ? 'c-warn' : 'c-neut');
+    }
+    
+    const dlqsub = document.getElementById('d-dlq-sub');
+    if (dlqsub) {
+      dlqsub.textContent = dlqCount > 0 ? dlqCount + ' awaiting replay' : 'clean';
+      dlqsub.className = 'dm-sub ' + (dlqCount > 0 ? 'c-warn' : 'c-neut');
+    }
+
+    const qcols = ['var(--purple)', 'var(--blue)', 'var(--teal2)', 'var(--amber2)'];
+    document.getElementById('d-qbars').innerHTML = qEntries.map(([q, d], idx) => `
+      <div class="qbar-row">
+        <div class="qbar-meta"><span class="qbar-name">${q}</span><span class="qbar-num">${d.depth}</span></div>
+        <div class="qbar-bg"><div class="qbar-fill" style="width:${Math.min(100, (d.depth / 500) * 100).toFixed(1)}%;background:${qcols[idx % qcols.length]}"></div></div>
       </div>`).join('');
 
-    _set('d-logcount',S.logC+' events');
-    const lmap={ok:'ll-ok',warn:'ll-warn',err:'ll-err',info:'ll-info',sys:'ll-sys'};
-    const lpfx={ok:'[ACK]  ',warn:'[WARN] ',err:'[NACK] ',info:'[INFO] ',sys:'[SYS]  '};
-    document.getElementById('d-log').innerHTML=S.logs.slice(0,10).map(l=>`<div class="ll ${lmap[l.type]}">${l.t} ${lpfx[l.type]}${l.msg}</div>`).join('');
+    const maxSp = Math.max(...S.history, 1);
+    document.getElementById('d-spark').innerHTML = S.history.map((v, i) => `<div class="spark-b" style="height:${Math.max(2, (v / maxSp) * 46).toFixed(0)}px;background:var(--purple);opacity:${(0.3 + 0.7 * (i / 20)).toFixed(2)}"></div>`).join('');
 
-    const pct=(S.tokens/200)*100;
-    _set('d-tokens',Math.round(S.tokens));
-    _set('d-rate',Math.round(adjRate(total)));
-    _set('d-tb-rate-lbl',Math.round(adjRate(total))+' tokens/sec');
-    const tbBar=document.getElementById('d-tb-bar');
-    if(tbBar){tbBar.style.width=pct.toFixed(1)+'%';tbBar.style.background=pct<20?'var(--red)':pct<50?'var(--amber)':'var(--teal)';}
-    const tbSt=document.getElementById('d-tb-status');
-    if(tbSt){
-      if(pct<10){tbSt.textContent='rate limiting';tbSt.style.background='rgba(232,85,85,.1)';tbSt.style.color='var(--red)';}
-      else if(pct<45){tbSt.textContent='partial throttle';tbSt.style.background='rgba(245,166,35,.1)';tbSt.style.color='var(--amber)';}
-      else{tbSt.textContent='accepting requests';tbSt.style.background='rgba(62,207,174,.08)';tbSt.style.color='var(--teal)';}
+    const activeW = M.workers ? M.workers.active : [];
+    _set('d-wcount', activeW.length + ' active');
+    document.getElementById('d-workers').innerHTML = activeW.map(w => `
+      <div class="worker-item">
+        <div class="w-dot wi-active"></div>
+        <div class="w-id">${w.id}</div>
+        <div class="w-lat">${w.latency_ms > 0 ? Math.round(w.latency_ms) + 'ms' : ''}</div>
+        <div class="w-cnt">—</div>
+        <div class="w-badge wb-a">${w.status}</div>
+      </div>`).join('');
+
+    _set('d-logcount', S.logC + ' events');
+    const lmap = {ok: 'll-ok', warn: 'll-warn', err: 'll-err', info: 'll-info', sys: 'll-sys'};
+    const lpfx = {ok: '[ACK]  ', warn: '[WARN] ', err: '[NACK] ', info: '[INFO] ', sys: '[SYS]  '};
+    document.getElementById('d-log').innerHTML = S.logs.slice(0, 10).map(l => `<div class="ll ${lmap[l.type]}">${l.t} ${lpfx[l.type]}${l.msg}</div>`).join('');
+
+    // Fetch doesn't give us live token bucket capacity easily right now, mock it as accepting
+    _set('d-tokens', 200);
+    _set('d-rate', 100);
+    _set('d-tb-rate-lbl', '100 tokens/sec');
+    const tbBar = document.getElementById('d-tb-bar');
+    if (tbBar) { tbBar.style.width = '100%'; tbBar.style.background = 'var(--teal)'; }
+    const tbSt = document.getElementById('d-tb-status');
+    if (tbSt) { tbSt.textContent = 'accepting requests'; tbSt.style.background = 'rgba(62,207,174,.08)'; tbSt.style.color = 'var(--teal)'; }
+
+    _set('d-dlq-count2', dlqCount);
+    const dlqEl = document.getElementById('d-dlqlist');
+    let dlqTasks = (D && D.tasks) ? D.tasks : [];
+    if (dlqEl) {
+      dlqEl.innerHTML = dlqTasks.length === 0
+        ? '<div style="font-size:12px;color:var(--muted);padding:4px 0">No tasks in DLQ</div>'
+        : dlqTasks.slice(0, 4).map(t => `<div class="dlq-item"><div class="dlq-id">${t.task_id.slice(0,12)}</div><div class="dlq-err">failed</div><div class="dlq-att">${t.attempts} attempts</div></div>`).join('');
     }
 
-    _set('d-dlq-count2',S.dlq.length);
-    const dlqEl=document.getElementById('d-dlqlist');
-    if(dlqEl)dlqEl.innerHTML=S.dlq.length===0
-      ?'<div style="font-size:12px;color:var(--muted);padding:4px 0">No tasks in DLQ</div>'
-      :S.dlq.slice(0,4).map(t=>`<div class="dlq-item"><div class="dlq-id">${t.id}</div><div class="dlq-err">${t.reason}</div><div class="dlq-att">${t.attempts} attempts</div></div>`).join('');
-
-    if(S.running){const h=document.getElementById('hero-tpm');if(h)h.textContent=Math.round(tpm).toLocaleString();}
-    if(!S.running){setStatus('idle','var(--muted)');}
+    const h = document.getElementById('hero-tpm');
+    if (h) h.textContent = Math.round(tpm).toLocaleString();
   }
 
-  function adjRate(total){
-    const df=Math.max(0.05,1-Math.max(0,(total-50)/5000));
-    const lf=Math.max(0.1,1-Math.max(0,(S.p99-200)/20000));
-    return Math.max(5,100*df*lf);
-  }
-
-  function _set(id,val){const el=document.getElementById(id);if(el)el.textContent=val;}
-
-  log('sys','DistroSync broker v1.0.0 started');
-  log('sys','journal_mode=WAL  synchronous=NORMAL');
-  log('sys','TCP listener bound to 0.0.0.0:5555');
-  log('info','3 workers registered — heartbeat active');
-  log('sys','Token bucket: cap=200  fill=100/s');
-  log('info','Metrics API ready at :8000/metrics');
-  log('sys','Press "Start load" to begin simulation');
-
-  tick();
-  return{startLoad,floodLoad,crashWorker,replayDLQ};
+  log('sys', 'DistroSync dashboard connected');
+  poll();
+  return { startLoad, floodLoad, crashWorker, replayDLQ };
 })();
 
 // nav active state

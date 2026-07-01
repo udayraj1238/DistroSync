@@ -67,6 +67,8 @@ class HTTPAPIServer:
         metrics_handler: Optional[Callable] = None,
         dlq_handler: Optional[Callable] = None,
         stats_handler: Optional[Callable] = None,
+        crash_worker_handler: Optional[Callable] = None,
+        replay_dlq_handler: Optional[Callable] = None,
         dashboard_dir: str = DASHBOARD_DIR,
     ):
         self.host = host
@@ -74,6 +76,8 @@ class HTTPAPIServer:
         self._metrics_handler = metrics_handler
         self._dlq_handler = dlq_handler
         self._stats_handler = stats_handler
+        self._crash_worker_handler = crash_worker_handler
+        self._replay_dlq_handler = replay_dlq_handler
         self._dashboard_dir = dashboard_dir
         self._server: Optional[asyncio.Server] = None
 
@@ -113,6 +117,12 @@ class HTTPAPIServer:
                 await self._serve_metrics(writer)
             elif method == "POST" and path == "/admin/load-test":
                 await self._trigger_load_test(writer)
+            elif method == "POST" and path == "/admin/flood":
+                await self._trigger_flood(writer)
+            elif method == "POST" and path == "/admin/crash-worker":
+                await self._crash_worker(writer)
+            elif method == "POST" and path == "/admin/dlq/replay-all":
+                await self._replay_dlq(writer)
             elif path == "/metrics/dlq":
                 await self._serve_dlq(writer)
             elif path == "/stats":
@@ -286,6 +296,34 @@ class HTTPAPIServer:
         except Exception as e:
             logger.error(f"Failed to start load test: {e}")
             await self._send_response(writer, 500, {"status": "error", "error": str(e)})
+
+    async def _trigger_flood(self, writer: asyncio.StreamWriter) -> None:
+        """Trigger the load simulator in flood mode asynchronously."""
+        try:
+            import subprocess
+            load_script = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                "tests", "load", "load_simulator.py"
+            )
+            subprocess.Popen([sys.executable, load_script, "--producers", "200", "--tasks", "500"])
+            await self._send_response(writer, 200, {"status": "ok", "message": "Flood test started"})
+        except Exception as e:
+            logger.error(f"Failed to start flood test: {e}")
+            await self._send_response(writer, 500, {"status": "error", "error": str(e)})
+
+    async def _crash_worker(self, writer: asyncio.StreamWriter) -> None:
+        if self._crash_worker_handler:
+            result = await self._crash_worker_handler()
+            await self._send_response(writer, 200, result)
+        else:
+            await self._send_response(writer, 500, {"error": "Handler not configured"})
+
+    async def _replay_dlq(self, writer: asyncio.StreamWriter) -> None:
+        if self._replay_dlq_handler:
+            result = await self._replay_dlq_handler()
+            await self._send_response(writer, 200, result)
+        else:
+            await self._send_response(writer, 500, {"error": "Handler not configured"})
 
     async def start(self) -> None:
         """Start the HTTP server."""
