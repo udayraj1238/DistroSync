@@ -4,14 +4,14 @@ import time
 from producer.client import ProducerClient
 
 async def run_producer(prod_id: int, num_tasks: int, host: str, port: int):
-    client = ProducerClient(host, port, client_id=f"prod-{prod_id}")
+    client = ProducerClient(host, port)
     await client.connect()
     
     for i in range(num_tasks):
         queue = "tasks" if i % 2 == 0 else "emails"
-        await client.submit_task(
-            queue_name=queue,
-            payload={"test": True, "prod_id": prod_id, "seq": i}
+        await client.produce(
+            queue,
+            {"test": True, "prod_id": prod_id, "seq": i}
         )
     await client.close()
 
