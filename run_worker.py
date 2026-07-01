@@ -2,10 +2,9 @@ import os, asyncio, sys
 from worker.base_worker import BaseWorker
 
 class DockerWorker(BaseWorker):
-    async def process_task(self, task):
-        import time
-        time.sleep(0.01)
-        return {'status': 'completed', 'task_id': task.get('task_id', 'unknown')}
+    async def execute(self, payload: dict) -> dict:
+        await asyncio.sleep(0.01)
+        return {'status': 'completed', 'task_id': payload.get('task_id', 'unknown')}
 
 async def main():
     host = os.environ.get('BROKER_HOST', '127.0.0.1')
