@@ -684,9 +684,19 @@ class BrokerServer:
 
         # Add worker stats
         worker_stats = self.worker_registry.get_stats()
+        
+        active_workers_list = []
+        for w in self.worker_registry.get_active_workers():
+            active_workers_list.append({
+                "id": w.worker_id,
+                "latency_ms": w.ema_latency_ms,
+                "status": w.status
+            })
+
+        snapshot["status"] = "ok"
         snapshot["workers"] = {
-            "active_count": worker_stats.get("active_workers", 0),
-            "total_registered": worker_stats.get("total_registered", 0),
+            "active": active_workers_list,
+            "evicted_count": worker_stats.get("total_evictions", 0),
         }
 
         # Add DLQ count
