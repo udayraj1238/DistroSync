@@ -16,6 +16,7 @@ RUN chmod +x start.sh
 # The HTTP API (Dashboard) will run on this port.
 # Render automatically injects the PORT environment variable, usually 10000.
 # The broker uses HTTP_PORT if provided.
+ENV PYTHONUNBUFFERED=1
 EXPOSE 10000
 
 # Run the unified startup script
