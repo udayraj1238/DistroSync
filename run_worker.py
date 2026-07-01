@@ -13,7 +13,7 @@ async def main():
     queue = os.environ.get('QUEUE_NAME', 'tasks')
     worker_id = os.environ.get('WORKER_ID', f'worker-{os.getpid()}')
     w = DockerWorker(queue_name=queue, host=host, port=port, worker_id=worker_id)
-    await w.start()
+    await w.run()
 
 if __name__ == '__main__':
     asyncio.run(main())
