@@ -632,11 +632,20 @@ var sim = (function() {
 
   function render(M, D) {
     const uptime = Math.floor((Date.now() - S.start) / 1000);
-    const tpm = M.overall ? M.overall.throughput_tpm : 0;
-    const p99 = M.overall ? M.overall.p99_latency_ms : 0;
+    const qEntries = Object.entries(M.queues || {});
+    
+    let tpm = 0;
+    let maxP99 = 0;
+    qEntries.forEach(([q, stat]) => {
+        tpm += (stat.throughput_per_second || 0) * 60;
+        if ((stat.p99_latency_ms || 0) > maxP99) {
+            maxP99 = stat.p99_latency_ms;
+        }
+    });
+
+    const p99 = maxP99;
     
     let totalQ = 0;
-    const qEntries = Object.entries(M.queues || {});
     qEntries.forEach(([q, stat]) => totalQ += stat.depth);
     
     const inflight = M.broker ? M.broker.in_flight_tasks : 0;
@@ -654,7 +663,7 @@ var sim = (function() {
     
     // Total processed could be summed over queues
     let totalProc = 0;
-    qEntries.forEach(([q, stat]) => totalProc += (stat.total_processed || 0));
+    qEntries.forEach(([q, stat]) => totalProc += (stat.total_acked || 0));
     _set('d-proc', totalProc.toLocaleString());
     
     _set('d-evict', M.workers ? M.workers.evicted_count : 0);
