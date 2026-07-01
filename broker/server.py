@@ -689,7 +689,7 @@ class BrokerServer:
         for w in self.worker_registry.get_active_workers():
             active_workers_list.append({
                 "id": w.worker_id,
-                "latency_ms": w.ema_latency_ms,
+                "latency_ms": 0,
                 "status": w.status
             })
 
