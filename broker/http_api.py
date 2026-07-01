@@ -290,8 +290,8 @@ class HTTPAPIServer:
                 os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                 "run_load.py"
             )
-            # Pass the actual broker port
-            subprocess.Popen([sys.executable, load_script, "--port", str(self.broker.port)])
+            # Port defaults to 5555
+            subprocess.Popen([sys.executable, load_script, "--port", "5555"])
             await self._send_response(writer, 200, {"status": "ok", "message": "Load test started"})
         except Exception as e:
             logger.error(f"Failed to start load test: {e}")
@@ -305,7 +305,7 @@ class HTTPAPIServer:
                 os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                 "run_load.py"
             )
-            subprocess.Popen([sys.executable, load_script, "--producers", "200", "--tasks", "500", "--port", str(self.broker.port)])
+            subprocess.Popen([sys.executable, load_script, "--producers", "200", "--tasks", "500", "--port", "5555"])
             await self._send_response(writer, 200, {"status": "ok", "message": "Flood test started"})
         except Exception as e:
             logger.error(f"Failed to start flood test: {e}")
