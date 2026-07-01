@@ -308,6 +308,7 @@ class BaseWorker:
                         "command": "ACK",
                         "task_id": task_id,
                         "queue": self.queue_name,
+                        "worker_id": self.worker_id,
                     })
                     self._tasks_completed += 1
                     logger.info(
@@ -323,6 +324,7 @@ class BaseWorker:
                         "command": "NACK",
                         "task_id": task_id,
                         "queue": self.queue_name,
+                        "worker_id": self.worker_id,
                         "error": str(e),
                     })
                     self._tasks_failed += 1
