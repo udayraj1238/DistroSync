@@ -492,6 +492,17 @@ class WALStore:
 
     # ── Utility ───────────────────────────────────────────────────
 
+    def clear_all_data(self) -> None:
+        """
+        Completely wipes all persistent tasks and metrics.
+        Used for resetting the system state from the dashboard.
+        """
+        with self._get_conn() as conn:
+            conn.execute("DELETE FROM tasks")
+            conn.execute("DELETE FROM dead_letter_queue")
+            conn.execute("DELETE FROM broker_metadata")
+            conn.commit()
+
     def get_stats(self) -> Dict:
         """
         Return a snapshot of database statistics.

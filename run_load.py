@@ -8,7 +8,7 @@ async def run_producer(prod_id: int, num_tasks: int, host: str, port: int, queue
     await client.connect()
     
     for i in range(num_tasks):
-        queue = f"{queue_prefix}_tasks" if i % 2 == 0 else f"{queue_prefix}_emails"
+        queue = f"{queue_prefix}tasks" if i % 2 == 0 else f"{queue_prefix}emails"
         await client.produce(
             queue,
             {"test": True, "prod_id": prod_id, "seq": i}
@@ -24,7 +24,7 @@ async def main():
     args = parser.parse_args()
 
     q_prefix = args.queue + "_" if args.queue else ""
-    cors = [run_producer(i, args.tasks, "127.0.0.1", args.port, args.queue) for i in range(args.producers)]
+    cors = [run_producer(i, args.tasks, "127.0.0.1", args.port, q_prefix) for i in range(args.producers)]
     await asyncio.gather(*cors)
 
 if __name__ == "__main__":
