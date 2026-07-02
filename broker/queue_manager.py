@@ -138,7 +138,10 @@ class QueueManager:
         self._queues.clear()
         self._in_flight.clear()
         self._completed.clear()
-        self.dead_letter_queue.tasks.clear()
+        if hasattr(self.dead_letter_queue, "_tasks"):
+            self.dead_letter_queue._tasks.clear()
+        elif hasattr(self.dead_letter_queue, "tasks"):
+            self.dead_letter_queue.tasks.clear()
         self._total_enqueued = 0
         self._total_dequeued = 0
         self._total_acked = 0
