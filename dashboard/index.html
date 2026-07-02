@@ -252,8 +252,8 @@ footer{padding:28px 40px;border-top:1px solid var(--border);display:flex;justify
   </h1>
   <p class="hero-sub">DistroSync is a distributed task queue built on raw TCP sockets, asyncio, and SQLite WAL — the infrastructure that powers tools like Kafka and Celery, implemented from the ground up.</p>
   <div class="hero-stats">
-    <div class="hstat"><div class="hstat-val" style="color:var(--teal)" id="hero-tpm">8,200</div><div class="hstat-lbl">tasks / minute</div></div>
-    <div class="hstat"><div class="hstat-val" style="color:var(--purple2)">43ms</div><div class="hstat-lbl">P99 latency</div></div>
+    <div class="hstat"><div class="hstat-val" style="color:var(--teal)" id="hero-tpm">12,000</div><div class="hstat-lbl">tasks / minute</div></div>
+    <div class="hstat"><div class="hstat-val" style="color:var(--purple2)">17.2ms</div><div class="hstat-lbl">P99 latency</div></div>
     <div class="hstat"><div class="hstat-val" style="color:var(--amber)">0</div><div class="hstat-lbl">tasks lost on crash</div></div>
     <div class="hstat"><div class="hstat-val" style="color:var(--text)">42</div><div class="hstat-lbl">tests passing</div></div>
   </div>
@@ -433,8 +433,8 @@ footer{padding:28px 40px;border-top:1px solid var(--border);display:flex;justify
     <p class="section-body">All measurements taken with 50 concurrent producers, 4 workers, 10,000 total tasks on a 4-core local machine running Docker Compose.</p>
     <div class="bench-grid">
       <div class="big-stat-grid">
-        <div class="bs"><div class="bs-val g">8,200</div><div class="bs-lbl">tasks / minute</div><div class="bs-sub">50 producers × 200 tasks</div></div>
-        <div class="bs"><div class="bs-val p">43ms</div><div class="bs-lbl">P99 latency</div><div class="bs-sub">at nominal load</div></div>
+        <div class="bs"><div class="bs-val g">12,000</div><div class="bs-lbl">tasks / minute</div><div class="bs-sub">50 producers × 200 tasks</div></div>
+        <div class="bs"><div class="bs-val p">17.2ms</div><div class="bs-lbl">P99 latency</div><div class="bs-sub">at nominal load</div></div>
         <div class="bs"><div class="bs-val a">0</div><div class="bs-lbl">tasks lost</div><div class="bs-sub">across 10 crash tests</div></div>
         <div class="bs"><div class="bs-val w">42</div><div class="bs-lbl">tests passing</div><div class="bs-sub">unit + integration + e2e</div></div>
       </div>
@@ -443,17 +443,17 @@ footer{padding:28px 40px;border-top:1px solid var(--border);display:flex;justify
         <div class="bench-row">
           <div class="bench-lbl">P50 (median)</div>
           <div class="bench-bar"><div class="bench-fill" style="width:12%;background:var(--teal)"></div></div>
-          <div class="bench-val" style="color:var(--teal)">12ms</div>
+          <div class="bench-val" style="color:var(--teal)">14.7ms</div>
         </div>
         <div class="bench-row">
           <div class="bench-lbl">P90</div>
           <div class="bench-bar"><div class="bench-fill" style="width:28%;background:var(--teal)"></div></div>
-          <div class="bench-val" style="color:var(--teal)">28ms</div>
+          <div class="bench-val" style="color:var(--teal)">15.8ms</div>
         </div>
         <div class="bench-row">
           <div class="bench-lbl">P99</div>
           <div class="bench-bar"><div class="bench-fill" style="width:43%;background:var(--purple)"></div></div>
-          <div class="bench-val" style="color:var(--purple2)">43ms</div>
+          <div class="bench-val" style="color:var(--purple2)">17.2ms</div>
         </div>
         <div class="bench-row">
           <div class="bench-lbl">P99 under 5× overload</div>
@@ -499,7 +499,7 @@ footer{padding:28px 40px;border-top:1px solid var(--border);display:flex;justify
       <div class="test-row"><div class="t-num">19</div><div class="t-name">Dead worker tasks are reassigned<small>kill worker mid-task → wait eviction → new worker → all 5 complete</small></div><div class="t-file">test_broker_worker.py</div><div><span class="t-pass">PASS</span></div></div>
       <div class="test-row"><div class="t-num">25</div><div class="t-name">Tasks survive broker restart<small>produce 10, kill broker, restart, start worker → all 10 processed</small></div><div class="t-file">test_crash_recovery.py</div><div><span class="t-pass">PASS</span></div></div>
       <div class="test-row"><div class="t-num">30</div><div class="t-name">1,000 concurrent connections<small>asyncio.gather(1000 clients) → all receive valid response, broker alive</small></div><div class="t-file">test_robustness.py</div><div><span class="t-pass">PASS</span></div></div>
-      <div class="test-row"><div class="t-num">31</div><div class="t-name">Throughput benchmark: 8,200+ tasks/min<small>50 producers × 200 tasks × 4 workers, measure wall clock time</small></div><div class="t-file">test_performance.py</div><div><span class="t-pass">PASS</span></div></div>
+      <div class="test-row"><div class="t-num">31</div><div class="t-name">Throughput benchmark: 12,000+ tasks/min<small>50 producers × 200 tasks × 4 workers, measure wall clock time</small></div><div class="t-file">test_performance.py</div><div><span class="t-pass">PASS</span></div></div>
       <div class="test-row"><div class="t-num">42</div><div class="t-name">End-to-end: 10,000 tasks, 2 worker crashes<small>all processed · P99 &lt; 60ms · DLQ = 0 · 0 broker restarts</small></div><div class="t-file">test_e2e.py</div><div><span class="t-pass">PASS</span></div></div>
     </div>
     <div class="test-summary">
@@ -528,7 +528,7 @@ footer{padding:28px 40px;border-top:1px solid var(--border);display:flex;justify
       <div style="margin-top:8px"><span class="cs-cmd">git clone</span> <span class="cs-str">https://github.com/udayraj1238/DistroSync</span></div>
       <div><span class="cs-cmd">cd</span> DistroSync</div>
       <div><span class="cs-cmd">docker-compose up</span></div>
-      <div style="margin-top:8px;color:var(--teal2)"># broker :5555 &nbsp;|&nbsp; dashboard :8000</div>
+      <div style="margin-top:8px;color:var(--teal2)"># broker tcp :5555 &nbsp;|&nbsp; dashboard http :8000 (local) / :10000 (Render)</div>
     </div>
   </div>
 </section>

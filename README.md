@@ -27,14 +27,14 @@ Then open your browser to [http://localhost:8000/dashboard](http://localhost:800
 
 ## Benchmark Results
 
-Under heavy concurrent load (5000 tasks blasted by producers over raw TCP):
+Under heavy concurrent load (10,000 tasks, 50 concurrent producers, 4 workers):
 
 | Metric | Result |
 |--------|--------|
-| **Total Tasks** | 5,000 |
-| **P50 Latency** | ~2.5 ms |
-| **P99 Latency** | ~14.1 ms |
-| **Throughput** | ~2800 tasks / sec |
+| **Total Tasks** | 10,000 |
+| **P50 Latency** | ~14.7 ms |
+| **P99 Latency** | ~17.2 ms |
+| **Throughput** | ~200 tasks / sec |
 | **Rejection Rate** | < 1% (Adaptive shedding dynamically managed load) |
 
 ## Concepts Demonstrated
