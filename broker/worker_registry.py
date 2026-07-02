@@ -68,6 +68,7 @@ class WorkerInfo:
     last_heartbeat: float = field(default_factory=time.time)
     in_flight_tasks: Set[str] = field(default_factory=set)
     task_start_times: Dict[str, float] = field(default_factory=dict)
+    writer: Optional[asyncio.StreamWriter] = None
     status: str = "active"
 
 
@@ -130,6 +131,7 @@ class WorkerRegistry:
         worker_id: str,
         address: tuple = ("unknown", 0),
         queues: Optional[list] = None,
+        writer: Optional[asyncio.StreamWriter] = None,
     ) -> bool:
         """
         Register a new worker or update an existing one.
@@ -154,6 +156,7 @@ class WorkerRegistry:
                 registered_at=time.time(),
                 last_heartbeat=time.time(),
                 in_flight_tasks=set(),
+                writer=writer,
                 status="active",
             )
 

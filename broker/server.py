@@ -322,7 +322,7 @@ class BrokerServer:
             return {"status": "error", "reason": "Missing 'worker_id' field"}
 
         addr = writer.get_extra_info("peername")
-        is_new = await self.worker_registry.register(worker_id, address=addr, queues=queues)
+        is_new = await self.worker_registry.register(worker_id, address=addr, queues=queues, writer=writer)
         return {
             "status": "ok",
             "registered": is_new,
@@ -697,6 +697,14 @@ class BrokerServer:
         if not active:
             return {"status": "error", "message": "No active workers to crash"}
         w = random.choice(active)
+        
+        # Actually sever the TCP connection to force a guaranteed, clean disconnect
+        if w.writer and not w.writer.is_closing():
+            try:
+                w.writer.close()
+            except Exception:
+                pass
+                
         w.last_heartbeat = time.time() - 10.0
         return {"status": "ok", "message": f"Worker {w.worker_id} crashed"}
 
