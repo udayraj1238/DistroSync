@@ -746,7 +746,12 @@ var sim = (function() {
   }
 
   log('sys', 'DistroSync dashboard connected');
-  poll();
+  // Reset the global broker on page load so every refresh stops active work
+  // and starts at absolute 0 for everyone.
+  post('/admin/reset').then(() => {
+      S.start = Date.now();
+      poll();
+  });
   return { startLoad, floodLoad, crashWorker, replayDLQ, resetSystem };
 })();
 

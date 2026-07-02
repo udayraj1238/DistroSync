@@ -249,10 +249,19 @@ class QueueManager:
             task was available, or None if the queue is empty.
         """
         async with self._lock:
-            self._ensure_queue(queue_name)
-
-            if not self._queues[queue_name]:
-                return None
+            if queue_name == "*":
+                target_q = None
+                for q, dq in self._queues.items():
+                    if dq:
+                        target_q = q
+                        break
+                if not target_q:
+                    return None
+                queue_name = target_q
+            else:
+                self._ensure_queue(queue_name)
+                if not self._queues[queue_name]:
+                    return None
 
             task = self._queues[queue_name].popleft()
             task.status = "in_flight"

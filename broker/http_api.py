@@ -82,6 +82,7 @@ class HTTPAPIServer:
         self._reset_handler = reset_handler
         self._dashboard_dir = dashboard_dir
         self._server: Optional[asyncio.Server] = None
+        self._active_loads = []
 
     async def handle_connection(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
@@ -288,6 +289,14 @@ class HTTPAPIServer:
 
     async def _handle_reset(self, writer: asyncio.StreamWriter):
         """Completely restart the broker metrics and queues from scratch."""
+        # Kill any actively running load generators
+        for p in self._active_loads:
+            try:
+                p.kill()
+            except Exception:
+                pass
+        self._active_loads.clear()
+
         if self._reset_handler:
             result = await self._reset_handler()
             await self._send_response(writer, 200, result)
@@ -303,7 +312,8 @@ class HTTPAPIServer:
                 "run_load.py"
             )
             # Port defaults to 5555
-            subprocess.Popen([sys.executable, load_script, "--port", "5555"])
+            p = subprocess.Popen([sys.executable, load_script, "--port", "5555"])
+            self._active_loads.append(p)
             await self._send_response(writer, 200, {"status": "ok", "message": "Load test started"})
         except Exception as e:
             logger.error(f"Failed to start load test: {e}")
@@ -317,7 +327,8 @@ class HTTPAPIServer:
                 os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                 "run_load.py"
             )
-            subprocess.Popen([sys.executable, load_script, "--producers", "200", "--tasks", "500", "--port", "5555"])
+            p = subprocess.Popen([sys.executable, load_script, "--producers", "200", "--tasks", "500", "--port", "5555"])
+            self._active_loads.append(p)
             await self._send_response(writer, 200, {"status": "ok", "message": "Flood test started"})
         except Exception as e:
             logger.error(f"Failed to start flood test: {e}")
