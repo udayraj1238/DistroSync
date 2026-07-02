@@ -366,6 +366,7 @@ footer{padding:28px 40px;border-top:1px solid var(--border);display:flex;justify
         <button class="ctrl-btn cb-crash" onclick="sim.crashWorker()">✕ Kill worker</button>
         <button class="ctrl-btn cb-replay" onclick="sim.replayDLQ()">↩ Replay DLQ</button>
         <div class="sim-status" id="d-simstatus">idle — press start load</div>
+        <button class="ctrl-btn" style="margin-left:auto;background:var(--red2);color:#fff" onclick="sim.resetSystem()">⟳ Restart From Scratch</button>
       </div>
       <div class="dash-footer">
         <div class="df"><div class="df-key">uptime</div><div class="df-val" id="d-uptime">0s</div></div>
@@ -605,6 +606,15 @@ var sim = (function() {
   function replayDLQ() {
     log('info', 'Replaying Dead Letter Queue...');
     post('/admin/dlq/replay-all');
+  }
+
+  function resetSystem() {
+    if(!confirm("Are you sure you want to completely reset the dashboard and broker to scratch?")) return;
+    log('info', 'Resetting system to scratch...');
+    post('/admin/reset').then(() => {
+        S.logs = [];
+        log('sys', 'System fully reset. Ready for load.');
+    });
   }
 
   async function poll() {

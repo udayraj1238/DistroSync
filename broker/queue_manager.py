@@ -133,6 +133,18 @@ class QueueManager:
 
         logger.info(f"QueueManager initialized (in-memory mode, max_retries={max_retries})")
 
+    def reset(self) -> None:
+        """Completely reset the in-memory queues and stats."""
+        self._queues.clear()
+        self._in_flight.clear()
+        self._completed.clear()
+        self.dead_letter_queue.tasks.clear()
+        self._total_enqueued = 0
+        self._total_dequeued = 0
+        self._total_acked = 0
+        self._total_nacked = 0
+        self._total_dead_lettered = 0
+
     def _ensure_queue(self, queue_name: str):
         """
         Create the named queue if it doesn't already exist.

@@ -709,6 +709,15 @@ class BrokerServer:
                 replayed += 1
         return {"status": "ok", "message": f"Replayed {replayed} tasks"}
 
+    async def _reset_handler(self) -> dict:
+        """Reset broker state from scratch via dashboard."""
+        async with self.queue_manager._lock:
+            self.queue_manager.reset()
+            if self.wal_store:
+                self.wal_store.clear_all_data()
+        self.metrics.reset()
+        return {"status": "ok", "message": "System fully reset to scratch"}
+
     # ── Server Lifecycle ───────────────────────────────────────────────────────
 
     async def start(self):
@@ -764,6 +773,7 @@ class BrokerServer:
             stats_handler=self._get_stats_snapshot,
             crash_worker_handler=self._crash_worker_handler,
             replay_dlq_handler=self._replay_dlq_handler,
+            reset_handler=self._reset_handler,
         )
         await self.http_api.start()
 

@@ -93,6 +93,19 @@ class MetricsCollector:
         while timestamps and timestamps[0] < cutoff:
             timestamps.popleft()
 
+    def reset(self) -> None:
+        """Reset all metrics to default."""
+        with self._lock:
+            self._produce_times.clear()
+            self._ack_times.clear()
+            self._latency_samples.clear()
+            self._total_produced.clear()
+            self._total_consumed.clear()
+            self._total_acked.clear()
+            self._total_nacked.clear()
+            self._total_dlq.clear()
+            self._start_time = time.monotonic()
+
     # ── Recording Events ──────────────────────────────────────────────
 
     def record_produce(self, queue_name: str) -> None:

@@ -69,6 +69,7 @@ class HTTPAPIServer:
         stats_handler: Optional[Callable] = None,
         crash_worker_handler: Optional[Callable] = None,
         replay_dlq_handler: Optional[Callable] = None,
+        reset_handler: Optional[Callable] = None,
         dashboard_dir: str = DASHBOARD_DIR,
     ):
         self.host = host
@@ -78,6 +79,7 @@ class HTTPAPIServer:
         self._stats_handler = stats_handler
         self._crash_worker_handler = crash_worker_handler
         self._replay_dlq_handler = replay_dlq_handler
+        self._reset_handler = reset_handler
         self._dashboard_dir = dashboard_dir
         self._server: Optional[asyncio.Server] = None
 
@@ -123,6 +125,8 @@ class HTTPAPIServer:
                 await self._crash_worker(writer)
             elif method == "POST" and path == "/admin/dlq/replay-all":
                 await self._replay_dlq(writer)
+            elif method == "POST" and path == "/admin/reset":
+                await self._handle_reset(writer)
             elif path == "/metrics/dlq":
                 await self._serve_dlq(writer)
             elif path == "/stats":
@@ -281,6 +285,14 @@ class HTTPAPIServer:
         else:
             stats = {"error": "Stats handler not registered"}
         await self._send_response(writer, 200, stats)
+
+    async def _handle_reset(self, writer: asyncio.StreamWriter):
+        """Completely restart the broker metrics and queues from scratch."""
+        if self._reset_handler:
+            result = await self._reset_handler()
+            await self._send_response(writer, 200, result)
+        else:
+            await self._send_response(writer, 500, {"error": "Handler not configured"})
 
     async def _trigger_load_test(self, writer: asyncio.StreamWriter) -> None:
         """Trigger the load simulator asynchronously."""
