@@ -43,5 +43,3 @@ Under heavy concurrent load (5000 tasks blasted by producers over raw TCP):
 - **Resilience & Reliability:** Dead Letter Queues (DLQ), explicit ACK/NACK signaling, and configurable retry exponential backoffs.
 - **Heartbeat & Eviction:** Worker nodes maintain TCP heartbeats. Dead nodes are evicted and their in-flight tasks are instantly re-queued to active workers.
 
----
-*Built as a capstone systems engineering project.*

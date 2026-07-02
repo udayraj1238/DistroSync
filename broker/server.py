@@ -1,42 +1,7 @@
 """
-Broker Server — The core TCP server for DistroSync.
-
-This is the central hub of the entire system. It listens on a TCP port,
-accepts connections from producers and workers, and routes commands
-to the appropriate handlers.
-
-How TCP communication works here:
-    TCP is a *stream* protocol, not a *message* protocol. That means if
-    you send "hello" and then "world" in two separate send() calls, the
-    receiver might read "helloworld" as one chunk, or "hel" and "loworld"
-    as two chunks. There are no message boundaries in TCP.
-
-    To fix this, we use LENGTH-PREFIXED FRAMING:
-        [4 bytes: message length as big-endian integer][JSON payload bytes]
-
-    The sender first writes the length of the JSON message (as a 4-byte
-    big-endian integer), then writes the JSON itself. The receiver reads
-    exactly 4 bytes to learn the message length, then reads exactly that
-    many bytes to get the complete message. This is the same approach
-    used by Redis (RESP), HTTP/2 frames, gRPC, and Kafka's binary protocol.
-
-Why asyncio?
-    The broker needs to handle many simultaneous connections (producers
-    and workers). Using one thread per connection would waste memory and
-    hit OS thread limits. asyncio uses a single-threaded event loop that
-    multiplexes I/O across all connections using non-blocking sockets.
-    When one connection is waiting for data, the event loop serves others.
-    This is the same model that Node.js uses, and it's how nginx handles
-    10,000+ concurrent connections on a single core.
-
-Command protocol:
-    All messages are JSON objects with a "command" field:
-        {"command": "PRODUCE", "queue": "emails", "task": {"to": "x@y.com"}}
-        {"command": "CONSUME", "queue": "emails", "worker_id": "w1"}
-        {"command": "HEARTBEAT", "worker_id": "w1"}
-        {"command": "ACK", "task_id": "uuid-here"}
-        {"command": "NACK", "task_id": "uuid-here"}
-        {"command": "REGISTER", "worker_id": "w1", "queues": ["emails"]}
+DistroSync broker: asyncio TCP server implementing the 4-byte
+length-prefixed JSON wire protocol. Handles PRODUCE, CONSUME,
+HEARTBEAT, ACK, NACK, and REGISTER commands.
 """
 
 import asyncio

@@ -1,61 +1,7 @@
 """
 Adaptive Load Shedder — Token-bucket rate limiter with dynamic adjustment.
-
-This is the core innovation of DistroSync. When queues back up and workers
-slow down, the broker doesn't just keep accepting tasks until it falls over.
-Instead, it dynamically throttles producers using an adaptive token-bucket
-algorithm.
-
-What is a token bucket?
-    A rate-limiting algorithm used everywhere in production systems:
-    AWS API Gateway, Cloudflare, Nginx, Envoy, Google Cloud Endpoints.
-
-    Imagine a bucket that can hold N tokens. Tokens are added at a fixed
-    rate (e.g., 100 tokens/second). Each accepted request consumes one
-    token. When the bucket is empty, requests are rejected. The bucket
-    cannot hold more than its capacity (excess tokens are discarded).
-
-    Formally:
-        tokens(t) = min(capacity, tokens(t-1) + elapsed * fill_rate)
-
-    This gives you:
-        - Burst tolerance: a full bucket allows short bursts up to capacity
-        - Sustained rate limiting: over time, throughput = fill_rate
-        - No fixed windows: unlike fixed-window counters, there are no
-          boundary effects at window edges
-
-What makes our version "adaptive"?
-    Most token buckets have a FIXED fill rate. Our version adjusts the
-    fill rate based on two real-time signals:
-
-    1. Queue depth — how many tasks are waiting to be processed.
-       If the queue is long, workers can't keep up, so we should
-       slow down producers.
-
-    2. Average worker latency — how long tasks are taking to complete.
-       If workers are slow (maybe due to CPU contention, network latency,
-       or downstream service issues), we should slow down producers.
-
-    Both signals are combined multiplicatively:
-        adjusted_rate = BASE_RATE * depth_factor * latency_factor
-
-    This means either signal alone can reduce throughput, and both
-    together reduce it dramatically. The multiplicative approach is
-    better than additive because it prevents one healthy signal from
-    masking a badly deteriorated one.
-
-    Similar systems:
-        - Netflix's concurrency-limits library (adaptive algorithms)
-        - TCP congestion control (AIMD: Additive Increase,
-          Multiplicative Decrease)
-        - CoDel (Controlled Delay) active queue management
-
-How it integrates:
-    1. Producer sends PRODUCE command
-    2. Broker calls load_shedder.check_and_consume(queue_name)
-    3. If allowed: enqueue the task normally
-    4. If rejected: respond with "rate_limited" + retry_after hint
-    5. Producer uses ExponentialBackoff with jitter to retry
+Dynamically throttles producers using an adaptive token-bucket algorithm
+based on real-time queue depth and average worker latency.
 """
 
 import asyncio
