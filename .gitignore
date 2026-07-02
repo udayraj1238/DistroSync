@@ -34,6 +34,6 @@ docker-compose.override.yml
 # Logs
 *.log
 
-# Project guides (private reference, not for public repo)
+# Internal documentation
 complete_project_guide.md
 concepts_explained.md.pdf
