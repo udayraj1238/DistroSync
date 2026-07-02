@@ -336,11 +336,13 @@ class BaseWorker:
             logger.info(f"Worker {self.worker_id[:8]}... cancelled")
         except ConnectionError as e:
             logger.error(f"Worker {self.worker_id[:8]}... lost connection: {e}")
+            raise
         except Exception as e:
             logger.error(
                 f"Worker {self.worker_id[:8]}... unexpected error: {e}",
                 exc_info=True,
             )
+            raise
         finally:
             self._running = False
             heartbeat_task.cancel()

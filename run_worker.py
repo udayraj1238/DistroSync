@@ -17,11 +17,11 @@ async def main():
             await w.run()
             break
         except ConnectionRefusedError:
-            print(f"[{worker_id}] Connection refused. Broker not ready. Retrying in 2s...")
-            await asyncio.sleep(2)
+            print(f"[{worker_id}] Connection refused. Broker not ready. Retrying in 5s...")
+            await asyncio.sleep(5)
         except Exception as e:
-            print(f"[{worker_id}] Disconnected: {e}. Retrying in 2s...")
-            await asyncio.sleep(2)
+            print(f"[{worker_id}] Disconnected: {e}. Simulating dead worker for 15s before auto-recovering...")
+            await asyncio.sleep(15)
 
 if __name__ == '__main__':
     asyncio.run(main())
