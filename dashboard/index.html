@@ -679,7 +679,7 @@ var sim = (function() {
     _set('d-proc', totalProc.toLocaleString());
     
     _set('d-evict', M.workers ? M.workers.evicted_count : 0);
-    _set('d-rej', '—'); // The token bucket rejects aren't easily exposed in metrics right now
+    _set('d-rej', M.load_shedder ? M.load_shedder.total_rejected.toLocaleString() : '—');
     _set('d-restarts', 0);
 
     const p99el = document.getElementById('d-p99');
@@ -723,14 +723,39 @@ var sim = (function() {
     const lpfx = {ok: '[ACK]  ', warn: '[WARN] ', err: '[NACK] ', info: '[INFO] ', sys: '[SYS]  '};
     document.getElementById('d-log').innerHTML = S.logs.slice(0, 10).map(l => `<div class="ll ${lmap[l.type]}">${l.t} ${lpfx[l.type]}${l.msg}</div>`).join('');
 
-    // Fetch doesn't give us live token bucket capacity easily right now, mock it as accepting
-    _set('d-tokens', 200);
-    _set('d-rate', 100);
-    _set('d-tb-rate-lbl', '100 tokens/sec');
-    const tbBar = document.getElementById('d-tb-bar');
-    if (tbBar) { tbBar.style.width = '100%'; tbBar.style.background = 'var(--teal)'; }
-    const tbSt = document.getElementById('d-tb-status');
-    if (tbSt) { tbSt.textContent = 'accepting requests'; tbSt.style.background = 'rgba(62,207,174,.08)'; tbSt.style.color = 'var(--teal)'; }
+    if (M.load_shedder && M.load_shedder.buckets) {
+      const bucket = M.load_shedder.buckets['tasks'] || Object.values(M.load_shedder.buckets)[0];
+      if (bucket) {
+        _set('d-tokens', Math.floor(bucket.tokens));
+        _set('d-rate', bucket.adjusted_rate);
+        _set('d-tb-rate-lbl', bucket.adjusted_rate + ' tokens/sec');
+        
+        const pct = Math.max(0, Math.min(100, (bucket.tokens / bucket.capacity) * 100));
+        const tbBar = document.getElementById('d-tb-bar');
+        if (tbBar) { tbBar.style.width = pct + '%'; tbBar.style.background = pct < 20 ? 'var(--red)' : 'var(--teal)'; }
+        
+        const tbSt = document.getElementById('d-tb-status');
+        if (tbSt) {
+          if (pct < 1) {
+            tbSt.textContent = 'throttling requests';
+            tbSt.style.background = 'rgba(239,68,68,.1)';
+            tbSt.style.color = 'var(--red)';
+          } else {
+            tbSt.textContent = 'accepting requests';
+            tbSt.style.background = 'rgba(62,207,174,.08)';
+            tbSt.style.color = 'var(--teal)';
+          }
+        }
+      }
+    } else {
+      _set('d-tokens', 200);
+      _set('d-rate', 100);
+      _set('d-tb-rate-lbl', '100 tokens/sec');
+      const tbBar = document.getElementById('d-tb-bar');
+      if (tbBar) { tbBar.style.width = '100%'; tbBar.style.background = 'var(--teal)'; }
+      const tbSt = document.getElementById('d-tb-status');
+      if (tbSt) { tbSt.textContent = 'accepting requests'; tbSt.style.background = 'rgba(62,207,174,.08)'; tbSt.style.color = 'var(--teal)'; }
+    }
 
     _set('d-dlq-count2', dlqCount);
     const dlqEl = document.getElementById('d-dlqlist');

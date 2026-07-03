@@ -677,6 +677,7 @@ class BrokerServer:
             self.queue_manager.in_flight_count()
         )
         snapshot["broker"]["active_connections"] = self._active_connections
+        snapshot["load_shedder"] = self.load_shedder.get_stats()
         snapshot["status"] = "ok"
 
         return snapshot
