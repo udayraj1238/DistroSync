@@ -34,7 +34,7 @@ Under heavy concurrent load (10,000 tasks, 50 concurrent producers, 4 workers):
 | **Total Tasks** | 10,000 |
 | **P50 Latency** | ~14.7 ms |
 | **P99 Latency** | ~17.2 ms |
-| **Throughput** | ~200 tasks / sec |
+| **Throughput** | ~12,000 tasks / min (200/sec) |
 | **Rejection Rate** | < 1% (Adaptive shedding dynamically managed load) |
 
 ## Concepts Demonstrated

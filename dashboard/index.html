@@ -494,6 +494,15 @@ footer{padding:28px 40px;border-top:1px solid var(--border);display:flex;justify
       <div class="test-head"><div>#</div><div>Test</div><div>File</div><div>Status</div></div>
       <div class="test-row"><div class="t-num">01</div><div class="t-name">Token bucket fills at correct rate<small>capacity=10, rate=10/s, sleep 0.5s → assert ~5 tokens</small></div><div class="t-file">test_load_shedder.py</div><div><span class="t-pass">PASS</span></div></div>
       <div class="test-row"><div class="t-num">02</div><div class="t-name">Token bucket capped at capacity<small>rate=100, sleep 0.5s → tokens never exceed capacity=10</small></div><div class="t-file">test_load_shedder.py</div><div><span class="t-pass">PASS</span></div></div>
+      <div class="test-row" style="background:var(--bg2)">
+        <div class="t-num" style="color:var(--muted)">…</div>
+        <div class="t-name" style="color:var(--muted);font-size:11px">
+          32 more tests: token_bucket_thread_safety, wal_concurrent_writes,
+          process_pool_survives_crash, dlq_replay, rate_limiting_fires...
+        </div>
+        <div class="t-file"></div>
+        <div></div>
+      </div>
       <div class="test-row"><div class="t-num">08</div><div class="t-name">Length-prefix framing roundtrip<small>encode → decode → assert equal to original dict</small></div><div class="t-file">test_protocol.py</div><div><span class="t-pass">PASS</span></div></div>
       <div class="test-row"><div class="t-num">10</div><div class="t-name">QueueManager preserves FIFO order<small>enqueue 10, dequeue 10, assert payloads arrive in order 0..9</small></div><div class="t-file">test_queue_manager.py</div><div><span class="t-pass">PASS</span></div></div>
       <div class="test-row"><div class="t-num">14</div><div class="t-name">Task moves to DLQ after 3 NACKs<small>NACK 3× → assert DLQ.add_to_dlq called, queue_depth == 0</small></div><div class="t-file">test_queue_manager.py</div><div><span class="t-pass">PASS</span></div></div>
