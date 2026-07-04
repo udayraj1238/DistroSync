@@ -366,7 +366,7 @@ footer{padding:28px 40px;border-top:1px solid var(--border);display:flex;justify
         <button class="ctrl-btn cb-crash" onclick="sim.crashWorker()">✕ Kill worker</button>
         <button class="ctrl-btn cb-replay" onclick="sim.replayDLQ()">↩ Replay DLQ</button>
         <div class="sim-status" id="d-simstatus">idle — press start load</div>
-        <button class="ctrl-btn" style="margin-left:auto;background:var(--red2);color:#fff" onclick="sim.resetSystem()">⟳ Restart From Scratch</button>
+        <button class="ctrl-btn" style="margin-left:auto;background:var(--red2);color:#fff" onclick="sim.resetSystem()" title="Restart simulation from scratch">⟳ Restart From Scratch</button>
       </div>
       <div class="dash-footer">
         <div class="df"><div class="df-key">uptime</div><div class="df-val" id="d-uptime">0s</div></div>
@@ -457,7 +457,7 @@ footer{padding:28px 40px;border-top:1px solid var(--border);display:flex;justify
           <div class="bench-val" style="color:var(--purple2)">17.2ms</div>
         </div>
         <div class="bench-row">
-          <div class="bench-lbl">P99 under 5× overload</div>
+          <div class="bench-lbl">P99 under 5× overload (rate-limiter active)</div>
           <div class="bench-bar"><div class="bench-fill" style="width:100%;background:var(--amber)"></div></div>
           <div class="bench-val" style="color:var(--amber)">380ms</div>
         </div>
