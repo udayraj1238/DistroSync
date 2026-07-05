@@ -1,9 +1,13 @@
 import os, asyncio, sys
 from worker.base_worker import BaseWorker
 
+import random
+
 class DockerWorker(BaseWorker):
     async def execute(self, payload: dict) -> dict:
         await asyncio.sleep(0.01)
+        if random.random() < 0.20:  # 20% chance of random processing failure
+            raise RuntimeError("Random simulation failure")
         return {'status': 'completed', 'task_id': payload.get('task_id', 'unknown')}
 
 async def main():
