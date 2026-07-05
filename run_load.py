@@ -9,10 +9,14 @@ async def run_producer(prod_id: int, num_tasks: int, host: str, port: int, queue
     
     for i in range(num_tasks):
         queue = f"{queue_prefix}tasks" if i % 2 == 0 else f"{queue_prefix}emails"
-        await client.produce(
-            queue,
-            {"test": True, "prod_id": prod_id, "seq": i}
-        )
+        try:
+            await client.produce(
+                queue,
+                {"test": True, "prod_id": prod_id, "seq": i},
+                max_retries=0
+            )
+        except RuntimeError:
+            pass # Task dropped due to rate limiting, exactly what we want in a flood test
         if delay > 0:
             await asyncio.sleep(delay)
     await client.close()
