@@ -106,15 +106,25 @@ class HTTPAPIServer:
             method = parts[0]
             path = parts[1].split("?")[0]  # Strip query string
 
-            # Only support GET and POST
-            if method not in ("GET", "POST"):
+            # Only support GET, POST, and HEAD
+            if method not in ("GET", "POST", "HEAD"):
                 await self._send_response(
                     writer, 405, {"error": "Method not allowed"}
                 )
                 return
 
             # Route dispatch
-            if method == "GET" and (path == "/" or path == "/dashboard"):
+            if method == "HEAD":
+                # UptimeRobot and other uptime monitors use HEAD requests.
+                # Just return 200 OK with no body.
+                response = (
+                    "HTTP/1.1 200 OK\r\n"
+                    "Content-Type: text/html\r\n"
+                    "Connection: close\r\n\r\n"
+                )
+                writer.write(response.encode("utf-8"))
+                await writer.drain()
+            elif method == "GET" and (path == "/" or path == "/dashboard"):
                 await self._serve_dashboard(writer)
             elif method == "GET" and (path == "/metrics" or path == "/metrics/"):
                 await self._serve_metrics(writer)
