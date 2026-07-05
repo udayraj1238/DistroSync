@@ -321,8 +321,9 @@ class HTTPAPIServer:
                 os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                 "run_load.py"
             )
-            # Port defaults to 5555
-            p = subprocess.Popen([sys.executable, load_script, "--port", "5555"])
+            # Port defaults to 5555. Add a 0.6s delay per producer to keep aggregate rate around 80/sec
+            # which is just under the 100/sec token bucket limit so it stays green.
+            p = subprocess.Popen([sys.executable, load_script, "--port", "5555", "--delay", "0.6"])
             self._active_loads.append(p)
             await self._send_response(writer, 200, {"status": "ok", "message": "Load test started"})
         except Exception as e:
