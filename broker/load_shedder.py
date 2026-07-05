@@ -298,31 +298,32 @@ class AdaptiveLoadShedder:
         bucket = self._buckets.get(queue_name)
         if bucket is None:
             return {}
+        adjusted = self._compute_adjusted_rate(queue_name)
+        bucket.refill(adjusted)
         return {
             "tokens": round(bucket.tokens, 2),
             "capacity": bucket.capacity,
             "nominal_fill_rate": bucket.nominal_fill_rate,
-            "adjusted_fill_rate": round(
-                self._compute_adjusted_rate(queue_name), 2
-            ),
+            "adjusted_fill_rate": round(adjusted, 2),
         }
 
     def get_stats(self) -> dict:
         """Return a snapshot of load shedder statistics."""
+        buckets_out = {}
+        for name, b in self._buckets.items():
+            adj = self._compute_adjusted_rate(name)
+            b.refill(adj)
+            buckets_out[name] = {
+                "tokens": round(b.tokens, 2),
+                "capacity": b.capacity,
+                "adjusted_rate": round(adj, 2),
+            }
+            
         return {
             "total_allowed": self._total_allowed,
             "total_rejected": self._total_rejected,
             "rejection_rate": (
                 self._total_rejected / max(1, self._total_allowed + self._total_rejected)
             ),
-            "buckets": {
-                name: {
-                    "tokens": round(b.tokens, 2),
-                    "capacity": b.capacity,
-                    "adjusted_rate": round(
-                        self._compute_adjusted_rate(name), 2
-                    ),
-                }
-                for name, b in self._buckets.items()
-            },
+            "buckets": buckets_out,
         }
