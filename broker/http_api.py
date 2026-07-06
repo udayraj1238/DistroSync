@@ -35,6 +35,8 @@ import os
 import sys
 from typing import Optional, Callable
 
+ADMIN_KEY = os.environ.get("ADMIN_KEY", "")
+
 logger = logging.getLogger(__name__)
 
 # Path to the dashboard HTML file (relative to project root)
@@ -111,14 +113,15 @@ class HTTPAPIServer:
                 )
                 return
 
-            auth_token = None
-            for line in request_text.split("\r\n")[1:]:
-                if line.lower().startswith("authorization:"):
-                    auth_token = line.split(":", 1)[1].strip()
-                    break
-
             if path.startswith("/admin/"):
-                if auth_token != "Bearer distrosync-demo-token-2026":
+                auth_token = None
+                for line in request_text.split("\r\n")[1:]:
+                    if line.lower().startswith("x-admin-key:"):
+                        auth_token = line.split(":", 1)[1].strip()
+                        break
+
+                if not ADMIN_KEY or auth_token != ADMIN_KEY:
+                    logger.warning(f"Unauthorized admin attempt on {path} from {addr}")
                     await self._send_response(writer, 401, {"error": "Unauthorized access to admin endpoint"})
                     return
 
@@ -247,7 +250,7 @@ class HTTPAPIServer:
     async def _serve_static(self, writer: asyncio.StreamWriter, path: str) -> None:
         """Serve a static file from the dashboard directory."""
         # Sanitize path to prevent directory traversal
-        relative = path.lstrip("/static/")
+        relative = path[len("/static/"):]
         if ".." in relative or relative.startswith("/"):
             await self._send_response(writer, 404, {"error": "Not found"})
             return

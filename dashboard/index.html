@@ -588,7 +588,7 @@ var sim = (function() {
       const res = await fetch(url, { 
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer distrosync-demo-token-2026'
+          'X-Admin-Key': 'distrosync-demo-token-2026'
         }
       });
       const data = await res.json();
