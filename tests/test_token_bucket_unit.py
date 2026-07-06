@@ -1,5 +1,5 @@
 """
-June 16 — Unit Tests: Isolated Function Testing
+Unit Tests: Isolated Function Testing
 
 Four focused unit tests for the load shedder's core components:
   1. Token bucket fills at the correct rate over time
@@ -9,10 +9,6 @@ Four focused unit tests for the load shedder's core components:
 
 These tests use NO broker, NO TCP, NO async — pure unit tests
 that exercise the math and logic in isolation.
-
-Usage:
-    python -m tests.test_june16_unit
-    python tests/test_june16_unit.py
 """
 
 import sys
@@ -181,7 +177,7 @@ def main():
     runner.run("Adaptive rate drops when queue is deep", test_adaptive_rate_drops_under_load)
 
     print(f"\n{'=' * 60}")
-    print(f"  June 16 Unit Tests: {runner.passed} passed, {runner.failed} failed")
+    print(f"  Unit Tests: {runner.passed} passed, {runner.failed} failed")
     print(f"{'=' * 60}")
 
     return runner.failed == 0

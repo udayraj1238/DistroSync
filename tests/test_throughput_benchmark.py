@@ -1,14 +1,10 @@
 """
-June 23 -- Performance and Concurrency Tests (Part 1)
+Performance and Concurrency Tests (Part 1)
 
 Focus: Throughput, Latency, and Thread Safety
   31. Throughput benchmark: 8000+ tasks/min
   32. P99 latency stays under 50ms at nominal load
   33. Token bucket thread safety under concurrent access
-
-Usage:
-    python -m tests.test_june23_performance
-    python tests/test_june23_performance.py
 """
 
 import asyncio
@@ -240,7 +236,7 @@ async def run_tests():
     await runner.run("Token bucket thread safety under concurrent access", test_bucket_thread_safety)
 
     print(f"\n{'=' * 60}")
-    print(f"  June 23 Performance Tests: {runner.passed} passed, {runner.failed} failed")
+    print(f"  Performance Tests: {runner.passed} passed, {runner.failed} failed")
     print(f"{'=' * 60}")
 
     return runner.failed == 0

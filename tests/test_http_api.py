@@ -1,12 +1,8 @@
 """
-June 24 -- API Tests
+API Tests
 
 Focus: HTTP API consistency under load
   40. Metrics endpoint accuracy during high churn
-
-Usage:
-    python -m tests.test_june24_api
-    python tests/test_june24_api.py
 """
 
 import asyncio
@@ -165,7 +161,7 @@ async def run_tests():
     await runner.run("Metrics endpoint accuracy during high churn", test_metrics_consistency_under_load)
 
     print(f"\n{'=' * 60}")
-    print(f"  June 24 API Tests: {runner.passed} passed, {runner.failed} failed")
+    print(f"  API Tests: {runner.passed} passed, {runner.failed} failed")
     print(f"{'=' * 60}")
 
     return runner.failed == 0

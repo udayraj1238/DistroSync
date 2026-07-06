@@ -1,14 +1,10 @@
 """
-June 22 -- Crash and Fault Tolerance Tests (Part 2)
+Crash and Fault Tolerance Tests (Part 2)
 
 Focus: Broker robustness against bad actors and massive load
   28. Broker handles malformed message without crashing
   29. Broker handles producer disconnect gracefully
   30. 1000 concurrent connections do not crash broker
-
-Usage:
-    python -m tests.test_june22_robustness
-    python tests/test_june22_robustness.py
 """
 
 import asyncio
@@ -221,7 +217,7 @@ async def run_tests():
     await runner.run("1000 concurrent connections do not crash broker", test_1000_connections)
 
     print(f"\n{'=' * 60}")
-    print(f"  June 22 Robustness Tests: {runner.passed} passed, {runner.failed} failed")
+    print(f"  Robustness Tests: {runner.passed} passed, {runner.failed} failed")
     print(f"{'=' * 60}")
 
     return runner.failed == 0

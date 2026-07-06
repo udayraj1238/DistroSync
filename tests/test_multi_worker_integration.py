@@ -1,5 +1,5 @@
 """
-June 21 -- Integration Tests: Advanced broker flows
+Integration Tests: Advanced broker flows
 
 Four integration tests for advanced distributed scenarios:
   21. Producer retries succeed after workers clear the queue
@@ -8,10 +8,6 @@ Four integration tests for advanced distributed scenarios:
   24. Metrics API returns accurate live data
 
 All tests spin up a real BrokerServer in-process with real TCP clients.
-
-Usage:
-    python -m tests.test_june21_integration
-    python tests/test_june21_integration.py
 """
 
 import asyncio
@@ -497,7 +493,7 @@ async def run_tests():
     await runner.run("Metrics API returns accurate live data", test_metrics_accuracy)
 
     print(f"\n{'=' * 60}")
-    print(f"  June 21 Integration Tests: {runner.passed} passed, {runner.failed} failed")
+    print(f"  Integration Tests: {runner.passed} passed, {runner.failed} failed")
     print(f"{'=' * 60}")
 
     return runner.failed == 0

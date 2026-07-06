@@ -1,5 +1,5 @@
 """
-June 20 — Integration Tests: Full broker-worker flows
+Integration Tests: Full broker-worker flows
 
 Four integration tests that spin up a real broker on the asyncio event loop:
   17. Full produce → consume → ACK flow (smoke test)
@@ -9,10 +9,6 @@ Four integration tests that spin up a real broker on the asyncio event loop:
 
 These tests start a real BrokerServer in-process and connect real
 ProducerClient / raw TCP clients — no mocks for the broker itself.
-
-Usage:
-    python -m tests.test_june20_integration
-    python tests/test_june20_integration.py
 """
 
 import asyncio
@@ -436,7 +432,7 @@ async def run_tests():
     await runner.run("Rate limiting fires under queue overload", test_rate_limiting_fires)
 
     print(f"\n{'=' * 60}")
-    print(f"  June 20 Integration Tests: {runner.passed} passed, {runner.failed} failed")
+    print(f"  Integration Tests: {runner.passed} passed, {runner.failed} failed")
     print(f"{'=' * 60}")
 
     return runner.failed == 0

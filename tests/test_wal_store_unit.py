@@ -1,5 +1,5 @@
 """
-June 18 — Async Unit Tests: Event Loop Behavior
+Async Unit Tests: Event Loop Behavior
 
 Four focused async tests for QueueManager core operations:
    9. Enqueue returns unique IDs (UUID collision check)
@@ -9,10 +9,6 @@ Four focused async tests for QueueManager core operations:
 
 These tests run on a real asyncio event loop but require NO broker,
 NO TCP connections, and NO workers — pure in-memory QueueManager.
-
-Usage:
-    python -m tests.test_june18_unit
-    python tests/test_june18_unit.py
 """
 
 import asyncio
@@ -192,7 +188,7 @@ async def run_tests():
     await runner.run("ACK removes task from in_flight", test_ack_removes_from_inflight)
 
     print(f"\n{'=' * 60}")
-    print(f"  June 18 Async Unit Tests: {runner.passed} passed, {runner.failed} failed")
+    print(f"  Async Unit Tests: {runner.passed} passed, {runner.failed} failed")
     print(f"{'=' * 60}")
 
     return runner.failed == 0

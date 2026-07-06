@@ -113,6 +113,18 @@ class HTTPAPIServer:
                 )
                 return
 
+            auth_token = None
+            for line in request_text.split("\r\n")[1:]:
+                if line.lower().startswith("authorization:"):
+                    auth_token = line.split(":", 1)[1].strip()
+                    break
+
+            if path.startswith("/admin/"):
+                if auth_token != "Bearer distrosync-demo-token-2026":
+                    await self._send_response(writer, 401, {"error": "Unauthorized access to admin endpoint"})
+                    return
+
+
             # Route dispatch
             if method == "HEAD":
                 # UptimeRobot and other uptime monitors use HEAD requests.

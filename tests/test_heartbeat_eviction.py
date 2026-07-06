@@ -1,5 +1,5 @@
 """
-Integration test for Worker Registry Heartbeat Eviction (Week 2, Day 1-2).
+Integration test for Worker Registry Heartbeat Eviction.
 
 Tests the heartbeat/eviction system:
   1. Workers that send heartbeats stay alive
@@ -9,9 +9,6 @@ Tests the heartbeat/eviction system:
   5. Registry stats track evictions correctly
 
 These tests use shorter timeout values to keep test runtime reasonable.
-
-Usage:
-    python -m tests.test_heartbeat_eviction
 """
 
 import asyncio

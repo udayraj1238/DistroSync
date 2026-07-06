@@ -16,7 +16,7 @@ async def main():
     from broker.server import BrokerServer
     
     with tempfile.TemporaryDirectory() as tmpdir:
-        db_path = os.path.join(tmpdir, "june2.db")
+        db_path = os.path.join(tmpdir, "test.db")
         server = BrokerServer(host="127.0.0.1", port=5551, http_port=8001, db_path=db_path)
         
         # Start broker in background
@@ -29,7 +29,7 @@ async def main():
         
         task_ids = []
         for i in range(5):
-            task_id = await producer.produce("june2_queue", {"job_num": i})
+            task_id = await producer.produce("test_queue", {"job_num": i})
             print(f"Produced task successfully! ID: {task_id}")
             task_ids.append(task_id)
             
@@ -50,11 +50,11 @@ async def main():
                     await self.shutdown()
                 return {"status": "success"}
 
-        worker = MockWorker(queue_name="june2_queue", host="127.0.0.1", port=5551, worker_id="june2-worker")
+        worker = MockWorker(queue_name="test_queue", host="127.0.0.1", port=5551, worker_id="test-worker")
         
         await worker.run() # blocks until shutdown is called
         
-        print("\nJune 2 Verification Complete!")
+        print("\nVerification Complete!")
         await server.stop()
         broker_task.cancel()
 

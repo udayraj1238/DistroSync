@@ -15,7 +15,7 @@ async def main():
     from broker.server import BrokerServer
     
     with tempfile.TemporaryDirectory() as tmpdir:
-        db_path = os.path.join(tmpdir, "june4.db")
+        db_path = os.path.join(tmpdir, "test.db")
         server = BrokerServer(host="127.0.0.1", port=5553, http_port=8003, db_path=db_path)
         broker_task = asyncio.create_task(server.start())
         await asyncio.sleep(1) # wait for bind
@@ -43,8 +43,8 @@ async def main():
                 print(f"DoomedWorker failing task intentionally...")
                 raise ValueError("Fatal task")
 
-        flaky_worker = FlakyWorker(queue_name="flaky_q", host="127.0.0.1", port=5553, worker_id="june4-flaky")
-        doomed_worker = DoomedWorker(queue_name="doomed_q", host="127.0.0.1", port=5553, worker_id="june4-doomed")
+        flaky_worker = FlakyWorker(queue_name="flaky_q", host="127.0.0.1", port=5553, worker_id="test-flaky")
+        doomed_worker = DoomedWorker(queue_name="doomed_q", host="127.0.0.1", port=5553, worker_id="test-doomed")
         
         flaky_task = asyncio.create_task(flaky_worker.run())
         doomed_task = asyncio.create_task(doomed_worker.run())

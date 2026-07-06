@@ -1,5 +1,5 @@
 """
-Integration test for Multiprocessing Worker (Week 2, Day 3-4).
+Integration test for Multiprocessing Worker.
 
 Tests the ProcessPoolWorker to verify:
   1. Tasks execute and return correct results
@@ -8,9 +8,6 @@ Tests the ProcessPoolWorker to verify:
   4. Custom task functions work
   5. Full pipeline: produce -> broker -> ProcessPoolWorker -> ACK
   6. Event loop stays responsive during CPU work (heartbeats continue)
-
-Usage:
-    python -m tests.test_multiprocessing_worker
 """
 
 import asyncio

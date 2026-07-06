@@ -1,5 +1,5 @@
 """
-June 19 — Async Unit Tests: NACK retry, DLQ routing, and Worker Registry
+Async Unit Tests: NACK retry, DLQ routing, and Worker Registry
 
 Four focused async tests:
   13. NACK re-enqueues task on first failure
@@ -9,10 +9,6 @@ Four focused async tests:
 
 These tests run on a real asyncio event loop with in-memory
 QueueManager and WorkerRegistry — no broker, no TCP.
-
-Usage:
-    python -m tests.test_june19_unit
-    python tests/test_june19_unit.py
 """
 
 import asyncio
@@ -226,7 +222,7 @@ async def run_tests():
     await runner.run("Worker registry evicts after timeout", test_eviction_after_timeout)
 
     print(f"\n{'=' * 60}")
-    print(f"  June 19 Async Unit Tests: {runner.passed} passed, {runner.failed} failed")
+    print(f"  Async Unit Tests: {runner.passed} passed, {runner.failed} failed")
     print(f"{'=' * 60}")
 
     return runner.failed == 0

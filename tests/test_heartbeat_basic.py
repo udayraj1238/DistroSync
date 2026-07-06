@@ -16,7 +16,7 @@ async def main():
     from broker.server import BrokerServer
     
     with tempfile.TemporaryDirectory() as tmpdir:
-        db_path = os.path.join(tmpdir, "june5.db")
+        db_path = os.path.join(tmpdir, "test.db")
         server = BrokerServer(host="127.0.0.1", port=5554, http_port=8004, db_path=db_path)
         broker_task = asyncio.create_task(server.start())
         await asyncio.sleep(1) # wait for bind

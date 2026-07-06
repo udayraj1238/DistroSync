@@ -585,7 +585,12 @@ var sim = (function() {
 
   async function post(url) {
     try {
-      const res = await fetch(url, { method: 'POST' });
+      const res = await fetch(url, { 
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer distrosync-demo-token-2026'
+        }
+      });
       const data = await res.json();
       if(data.status === 'ok') {
         log('sys', data.message || `POST ${url} OK`);

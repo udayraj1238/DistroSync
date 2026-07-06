@@ -1,5 +1,5 @@
 """
-Integration test for the Producer Client (Day 3-4).
+Integration test for the Producer Client.
 
 Tests the ProducerClient against a live broker to verify:
   - Connection management (connect, close, context manager)
@@ -7,9 +7,6 @@ Tests the ProducerClient against a live broker to verify:
   - Batch task submission
   - Error handling for invalid inputs
   - ExponentialBackoff logic (unit-level)
-
-Usage:
-    python -m tests.test_producer_client
 """
 
 import asyncio

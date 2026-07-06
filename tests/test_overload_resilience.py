@@ -1,13 +1,9 @@
 """
-June 24 -- Resilience Tests
+Resilience Tests
 
 Focus: System resilience and recovery
   38. System recovers from 5x overload within 8 seconds
   39. Zero tasks lost during rolling worker restart
-
-Usage:
-    python -m tests.test_june24_resilience
-    python tests/test_june24_resilience.py
 """
 
 import asyncio
@@ -259,7 +255,7 @@ async def run_tests():
     await runner.run("Zero tasks lost during rolling worker restart", test_rolling_restart)
 
     print(f"\n{'=' * 60}")
-    print(f"  June 24 Resilience Tests: {runner.passed} passed, {runner.failed} failed")
+    print(f"  Resilience Tests: {runner.passed} passed, {runner.failed} failed")
     print(f"{'=' * 60}")
 
     return runner.failed == 0

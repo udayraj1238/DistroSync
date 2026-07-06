@@ -1,5 +1,5 @@
 """
-Integration test for the Worker Base (Day 4-5).
+Integration test for the Worker Base.
 
 This is the first full end-to-end pipeline test:
     Producer -> Broker -> Worker -> ACK/NACK
@@ -11,9 +11,6 @@ Tests:
   4. Worker processes multiple tasks in FIFO order
   5. Heartbeat is sent during idle periods
   6. Custom worker subclass works correctly
-
-Usage:
-    python -m tests.test_worker_base
 """
 
 import asyncio

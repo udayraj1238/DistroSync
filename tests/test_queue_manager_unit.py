@@ -1,5 +1,5 @@
 """
-June 17 — Unit Tests: Backoff, Task model, and Protocol framing
+Unit Tests: Backoff, Task model, and Protocol framing
 
 Four focused unit tests:
   5. Exponential backoff grows correctly over successive attempts
@@ -8,10 +8,6 @@ Four focused unit tests:
   8. Length-prefix encode/decode roundtrip preserves data exactly
 
 These tests are pure unit tests — no broker, no TCP, no async.
-
-Usage:
-    python -m tests.test_june17_unit
-    python tests/test_june17_unit.py
 """
 
 import sys
@@ -228,7 +224,7 @@ def main():
     runner.run("Length-prefix encode/decode roundtrip", test_framing_roundtrip)
 
     print(f"\n{'=' * 60}")
-    print(f"  June 17 Unit Tests: {runner.passed} passed, {runner.failed} failed")
+    print(f"  Unit Tests: {runner.passed} passed, {runner.failed} failed")
     print(f"{'=' * 60}")
 
     return runner.failed == 0

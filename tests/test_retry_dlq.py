@@ -1,5 +1,5 @@
 """
-Integration test for Retry Counting and Dead Letter Queue (Week 2, Day 4-5).
+Integration test for Retry Counting and Dead Letter Queue.
 
 Tests the retry/DLQ flow:
   1. Task retried up to max_retries then moved to DLQ
@@ -10,9 +10,6 @@ Tests the retry/DLQ flow:
   6. Full pipeline: produce -> fail 3 times -> DLQ
   7. Tasks under retry limit are re-queued (not DLQ'd)
   8. Custom max_retries setting works
-
-Usage:
-    python -m tests.test_retry_dlq
 """
 
 import asyncio

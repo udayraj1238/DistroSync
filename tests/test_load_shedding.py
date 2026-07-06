@@ -1,5 +1,5 @@
 """
-Integration test for Adaptive Load Shedding (Week 3, Day 1-3).
+Integration test for Adaptive Load Shedding.
 
 Tests the adaptive token-bucket rate limiter:
   1. TokenBucket basics: consume, refill, empty rejection
@@ -11,9 +11,6 @@ Tests the adaptive token-bucket rate limiter:
   7. Full pipeline: producer gets rate_limited and retries
   8. Per-queue isolation: overloaded queue doesn't affect others
   9. Load shedder stats tracking
-
-Usage:
-    python -m tests.test_load_shedding
 """
 
 import asyncio

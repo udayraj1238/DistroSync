@@ -1,12 +1,8 @@
 """
-June 24 -- Docker Test
+Docker Test
 
 Focus: End-to-end environment smoke test
   41. Full Docker Compose smoke test
-
-Usage:
-    python -m tests.test_june24_docker
-    python tests/test_june24_docker.py
 """
 
 import sys
@@ -131,7 +127,7 @@ def run_tests():
     runner.run("Full Docker Compose smoke test", test_docker_compose_full)
 
     print(f"\n{'=' * 60}")
-    print(f"  June 24 Docker Tests: {runner.passed} passed, {runner.failed} failed")
+    print(f"  Docker Tests: {runner.passed} passed, {runner.failed} failed")
     print(f"{'=' * 60}")
 
     return runner.failed == 0

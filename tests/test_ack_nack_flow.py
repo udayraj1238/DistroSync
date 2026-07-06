@@ -15,7 +15,7 @@ async def main():
     from broker.server import BrokerServer
     
     with tempfile.TemporaryDirectory() as tmpdir:
-        db_path = os.path.join(tmpdir, "june3.db")
+        db_path = os.path.join(tmpdir, "test.db")
         server = BrokerServer(host="127.0.0.1", port=5552, http_port=8002, db_path=db_path)
         broker_task = asyncio.create_task(server.start())
         await asyncio.sleep(1) # wait for bind
@@ -30,11 +30,11 @@ async def main():
                 return {"status": "success"}
 
         worker = AckNackWorker(
-            queue_name="june3_queue", 
+            queue_name="test_queue", 
             host="127.0.0.1", 
             port=5552, 
             poll_interval=0.1,  # polls every 100ms when empty
-            worker_id="june3-worker"
+            worker_id="test-worker"
         )
         worker_task = asyncio.create_task(worker.run())
         
@@ -45,14 +45,14 @@ async def main():
         producer = ProducerClient("127.0.0.1", 5552)
         await producer.connect()
         print("\n--- Producing success task ---")
-        await producer.produce("june3_queue", {"job": "good", "fail": False})
+        await producer.produce("test_queue", {"job": "good", "fail": False})
         
         # Wait for worker to process
         await asyncio.sleep(0.5)
         
         # 3. Produce one task that fails (NACK)
         print("\n--- Producing failing task ---")
-        await producer.produce("june3_queue", {"job": "bad", "fail": True})
+        await producer.produce("test_queue", {"job": "bad", "fail": True})
         
         # Wait for worker to process and NACK
         await asyncio.sleep(0.5)

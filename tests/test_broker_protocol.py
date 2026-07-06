@@ -1,13 +1,11 @@
 """
-Quick integration test for the Day 1-2 TCP broker skeleton.
+Integration tests for the TCP broker wire protocol —
+produce/consume flow, framing, and command dispatch.
 
 This script starts the broker, connects as a producer to submit tasks,
 then connects as a consumer to pull them back out. It verifies the
 length-prefixed framing, JSON command protocol, and queue mechanics
 all work correctly.
-
-Usage:
-    python -m tests.test_broker_skeleton
 """
 
 import asyncio
