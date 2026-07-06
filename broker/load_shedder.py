@@ -21,8 +21,7 @@ class TokenBucket:
     The bucket starts full (tokens = capacity). Tokens are consumed
     by accepted requests and refilled over time at the adjusted rate.
 
-    Why float tokens instead of int?
-        Token refill is time-based. If 0.3 seconds elapsed at 100
+    Tokens are stored as float, not int, because refill is time-based. If 0.3 seconds elapsed at 100
         tokens/sec, we add 30.0 tokens. Using int would truncate
         fractional tokens on every refill, causing drift over time.
 

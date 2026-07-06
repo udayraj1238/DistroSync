@@ -7,15 +7,13 @@ every 2 seconds. If a worker misses 3 consecutive heartbeats (6
 seconds of silence), the broker evicts it and reassigns its in-flight
 tasks to other workers.
 
-Why 6 seconds and not 30?
-    There's a tradeoff between false positives and recovery time:
+A 6-second timeout is used instead of 30 because there's a tradeoff between false positives and recovery time:
     - Too short (e.g., 1s): network hiccups cause false evictions
     - Too long (e.g., 60s): tasks sit stuck on dead workers for a minute
     6 seconds (3 missed beats at 2s each) is the sweet spot used by
     systems like Redis Sentinel and ZooKeeper.
 
-Why heartbeats instead of TCP keepalive?
-    TCP keepalive is OS-level and typically defaults to 2-hour timeouts.
+Heartbeats are used instead of TCP keepalive because TCP keepalive is OS-level and typically defaults to 2-hour timeouts.
     Application-level heartbeats give us sub-second control. Also, TCP
     keepalive only detects dead connections — it can't detect a worker
     that's alive but frozen (e.g., stuck in an infinite loop or a GIL
@@ -84,8 +82,7 @@ class WorkerRegistry:
     event loop, checking every 2 seconds for workers whose last
     heartbeat is older than HEARTBEAT_TIMEOUT_SECONDS.
 
-    Why does the registry need a reference to the QueueManager?
-        When a dead worker is evicted, its in-flight tasks need to go
+    The registry needs a reference to the QueueManager because when a dead worker is evicted, its in-flight tasks need to go
         back into the queue. The registry holds the worker's task_ids
         but the QueueManager holds the actual Task objects. The registry
         calls queue_manager.requeue_by_id() for each orphaned task.

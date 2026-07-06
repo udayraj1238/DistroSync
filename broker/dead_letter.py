@@ -5,8 +5,7 @@ When a task fails more times than the maximum retry count (default: 3),
 it's "dead" — the system gives up on automatic retries and moves it
 to the Dead Letter Queue (DLQ) for manual inspection.
 
-Why have a DLQ instead of just dropping failed tasks?
-    In production systems, permanently failed tasks often indicate bugs
+A DLQ is used instead of just dropping failed tasks because in production systems, permanently failed tasks often indicate bugs
     in the task handler, bad input data, or downstream service outages.
     You want to keep these tasks around so you can:
         - Inspect why they failed (payload, error message, attempt count)

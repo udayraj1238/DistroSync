@@ -4,8 +4,7 @@ WAL-Mode SQLite Store — Crash-safe persistence for DistroSync.
 This module provides durable, crash-safe storage for tasks and the Dead
 Letter Queue using SQLite in Write-Ahead Logging (WAL) mode.
 
-Why WAL mode?
-    Normal SQLite uses a rollback journal: before writing to the database
+WAL mode is used because normal SQLite uses a rollback journal: before writing to the database
     file, it copies the original pages to a journal, then modifies the
     database file directly. If a crash happens mid-write, the journal is
     used to restore the database to its pre-write state.

@@ -8,8 +8,7 @@ raw TCP server. It serves:
     - GET /metrics/dlq   -> JSON DLQ task listing
     - GET /health        -> Simple health check
 
-Why not use Flask, FastAPI, or aiohttp?
-    DistroSync is zero-dependency by design. This server handles only
+Flask, FastAPI, or aiohttp are not used because DistroSync is zero-dependency by design. This server handles only
     the 4 routes above, so a full framework would be overkill. Raw HTTP
     parsing for simple GET requests is ~50 lines of code.
 
@@ -19,8 +18,7 @@ How it works:
     to the right handler. The response is a standard HTTP/1.1 response
     with Content-Type and CORS headers.
 
-Why CORS headers?
-    The dashboard HTML may be served from a file:// URL during development,
+CORS headers are included because the dashboard HTML may be served from a file:// URL during development,
     or from a different port. Without Access-Control-Allow-Origin: *,
     the browser would block the fetch() calls to /metrics.
 

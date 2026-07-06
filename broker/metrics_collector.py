@@ -19,8 +19,7 @@ How latency percentiles work:
     rolling buffer of the last 1000 latency samples per queue and compute
     percentiles on demand using sorted insertion.
 
-Why not use a library like prometheus_client?
-    DistroSync is designed to be zero-dependency. The metrics collector is
+A library like prometheus_client is not used because DistroSync is designed to be zero-dependency. The metrics collector is
     ~200 lines of pure Python using only collections.deque, time, and
     threading. This keeps the Docker image small and deployment simple.
 

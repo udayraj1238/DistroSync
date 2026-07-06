@@ -196,8 +196,7 @@ class BaseWorker:
             - If broker misses 3 consecutive heartbeats, it marks the
               worker as dead and reassigns its in-flight tasks
 
-        Why heartbeats instead of relying on TCP keepalive?
-            TCP keepalive is OS-level and typically has very long timeouts
+        Heartbeats are used instead of relying on TCP keepalive because TCP keepalive is OS-level and typically has very long timeouts
             (2 hours by default on Linux). Application-level heartbeats
             give us much finer control — we can detect failures in 6
             seconds instead of 2 hours. This is how Redis Sentinel,

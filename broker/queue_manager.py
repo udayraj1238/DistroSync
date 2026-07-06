@@ -89,8 +89,7 @@ class QueueManager:
         * If attempts < max_retries: re-enqueue at front of queue
         * If attempts >= max_retries: route to Dead Letter Queue (DLQ)
 
-    Why asyncio.Lock?
-        asyncio coroutines are cooperative — they yield control at every
+    asyncio.Lock is used because asyncio coroutines are cooperative — they yield control at every
         `await`. Without a lock, two coroutines could interleave their
         reads and writes to the same queue, causing duplicated or lost
         tasks. The lock guarantees atomicity of each queue operation.
@@ -326,8 +325,7 @@ class QueueManager:
                permanently failed and won't be retried automatically.
                An operator can manually inspect and retry DLQ tasks.
 
-        Why handle retry logic here instead of in the broker?
-            The QueueManager owns the task lifecycle and the queue data
+        Retry logic is handled here instead of in the broker because the QueueManager owns the task lifecycle and the queue data
             structures. Keeping the retry/DLQ decision here means:
             - The broker's NACK handler stays simple
             - The retry policy is in one place, easy to change

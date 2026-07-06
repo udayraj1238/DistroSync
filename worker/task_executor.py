@@ -1,8 +1,7 @@
 """
 Task Executor — Multiprocessing pool for CPU-bound task execution.
 
-Why multiprocessing instead of threading?
-    Python's Global Interpreter Lock (GIL) is a mutex that protects
+Multiprocessing is used instead of threading because Python's Global Interpreter Lock (GIL) is a mutex that protects
     access to Python objects, preventing multiple native threads from
     executing Python bytecodes at once. This means:
 
@@ -236,8 +235,7 @@ class ProcessPoolWorker(BaseWorker):
         consume loop. The pool is shut down in the finally block
         to clean up child processes.
 
-        Why create the pool here instead of __init__?
-            ProcessPoolExecutor spawns child processes. If we create
+        The pool is created here instead of __init__ because ProcessPoolExecutor spawns child processes. If we create
             it in __init__, those processes start immediately even if
             the worker hasn't connected to the broker yet. Creating
             it here ensures processes only spawn when we're ready.
