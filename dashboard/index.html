@@ -583,20 +583,25 @@ var sim = (function() {
     if (el) el.textContent = val;
   }
 
+  let adminKey = null;
+
   async function post(url) {
+    if (!adminKey) {
+      adminKey = prompt("Admin key:");
+      if (!adminKey) return; // cancelled
+    }
     try {
-      const res = await fetch(url, { 
+      const res = await fetch(url, {
         method: 'POST',
-        headers: {
-          'X-Admin-Key': 'distrosync-demo-token-2026'
-        }
+        headers: { 'X-Admin-Key': adminKey }
       });
       const data = await res.json();
-      if(data.status === 'ok') {
-        log('sys', data.message || `POST ${url} OK`);
-      } else {
-        log('err', data.error || data.message || 'Error');
+      if (data.status !== 'ok') {
+        adminKey = null; // wrong key — ask again next click
+        log('err', data.error || data.message || 'Unauthorized');
+        return;
       }
+      log('sys', data.message || `POST ${url} OK`);
     } catch(e) {
       log('err', 'Network error: ' + e.message);
     }
