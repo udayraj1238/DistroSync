@@ -114,16 +114,25 @@ class HTTPAPIServer:
                 return
 
             if path.startswith("/admin/"):
-                auth_token = None
-                for line in request_text.split("\r\n")[1:]:
-                    if line.lower().startswith("x-admin-key:"):
-                        auth_token = line.split(":", 1)[1].strip()
-                        break
+                # Safe endpoints that can be hit by recruiters clicking around the portfolio
+                safe_endpoints = (
+                    "/admin/load-test",
+                    "/admin/flood",
+                    "/admin/dlq/replay-all"
+                )
+                
+                # Destructive endpoints (reset, crash worker) still require the ADMIN_KEY
+                if path not in safe_endpoints:
+                    auth_token = None
+                    for line in request_text.split("\r\n")[1:]:
+                        if line.lower().startswith("x-admin-key:"):
+                            auth_token = line.split(":", 1)[1].strip()
+                            break
 
-                if not ADMIN_KEY or auth_token != ADMIN_KEY:
-                    logger.warning(f"Unauthorized admin attempt on {path} from {addr}")
-                    await self._send_response(writer, 401, {"error": "Unauthorized access to admin endpoint"})
-                    return
+                    if not ADMIN_KEY or auth_token != ADMIN_KEY:
+                        logger.warning(f"Unauthorized admin attempt on {path} from {addr}")
+                        await self._send_response(writer, 401, {"error": "Unauthorized access to admin endpoint"})
+                        return
 
 
             # Route dispatch
