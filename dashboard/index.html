@@ -586,18 +586,24 @@ var sim = (function() {
   let adminKey = null;
 
   async function post(url) {
-    if (!adminKey) {
-      adminKey = prompt("Admin key:");
-      if (!adminKey) return; // cancelled
+    const isDestructive = url.includes('/reset') || url.includes('/crash-worker');
+    if (isDestructive && !adminKey) {
+      adminKey = prompt("Admin key required for this action:");
+      if (!adminKey) return;
     }
+    
     try {
+      const headers = {};
+      if (adminKey) headers['X-Admin-Key'] = adminKey;
+      
       const res = await fetch(url, {
         method: 'POST',
-        headers: { 'X-Admin-Key': adminKey }
+        headers: headers
       });
       const data = await res.json();
-      if (data.status !== 'ok') {
-        adminKey = null; // wrong key — ask again next click
+      
+      if (data.status !== 'ok' || res.status === 401) {
+        if (res.status === 401) adminKey = null; // clear wrong key
         log('err', data.error || data.message || 'Unauthorized');
         return;
       }
