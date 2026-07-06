@@ -433,3 +433,21 @@ if __name__ == "__main__":
     print(f"{'=' * 50}\n")
 
     sys.exit(0 if failed == 0 else 1)
+
+def test_adaptive_rate_drops_under_load():
+    """
+    Adaptive rate drops when queue is deep.
+    """
+    from unittest.mock import MagicMock
+    mock_qm = MagicMock()
+    mock_qm.queue_depth.return_value = 500
+    mock_wr = MagicMock()
+    mock_wr.average_latency_ms.return_value = 0.0
+
+    from broker.load_shedder import AdaptiveLoadShedder
+    shedder = AdaptiveLoadShedder(mock_qm, mock_wr)
+    rate = shedder._compute_adjusted_rate("overloaded_q")
+
+    threshold = shedder.BASE_FILL_RATE * 0.2
+    assert rate < threshold
+    assert rate >= shedder.MIN_FILL_RATE
