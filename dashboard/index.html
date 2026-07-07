@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DistroSync â€” A distributed task queue, built from the wire up</title>
+<title>DistroSync — A distributed task queue, built from the wire up</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
@@ -25,7 +25,7 @@ body{font-family:var(--f-body);background:var(--bg);color:var(--ink);line-height
 a{color:inherit}
 :focus-visible{outline:2px solid var(--signal);outline-offset:3px;border-radius:2px}
 
-/* ===== SIGNAL TRACE â€” the structural motif threading the whole page ===== */
+/* ===== SIGNAL TRACE — the structural motif threading the whole page ===== */
 .trace{position:relative;height:1px;background:var(--wire);overflow:visible;margin:0 40px}
 .trace::before{
   content:'';position:absolute;top:0;left:-4px;width:60px;height:1px;
@@ -46,7 +46,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:200;background:rgba(8,11,9,.82);
 .nav-cta:hover{background:var(--signal-dim);border-color:var(--signal)}
 @media(max-width:820px){.nav-links{display:none}}
 
-/* ===== HERO â€” 3D canvas + type ===== */
+/* ===== HERO — 3D canvas + type ===== */
 .hero{position:relative;min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0 40px;text-align:center;overflow:hidden}
 #hero-canvas{position:absolute;inset:0;z-index:0;opacity:0;transition:opacity 1.8s ease}
 #hero-canvas.ready{opacity:1}
@@ -257,15 +257,15 @@ footer{padding:36px 40px;border-top:1px solid var(--wire);display:flex;justify-c
     <li><a href="#benchmarks">benchmarks</a></li>
     <li><a href="#tests">tests</a></li>
   </ul>
-  <a href="https://github.com/udayraj1238/DistroSync" target="_blank" class="nav-cta">github â†’</a>
+  <a href="https://github.com/udayraj1238/DistroSync" target="_blank" class="nav-cta">github →</a>
 </nav>
 
 <section class="hero" id="home">
   <canvas id="hero-canvas"></canvas>
   <div class="hero-content">
-    <div class="hero-eyebrow">tcp Â· asyncio Â· sqlite wal Â· zero frameworks</div>
+    <div class="hero-eyebrow">tcp · asyncio · sqlite wal · zero frameworks</div>
     <h1 class="hero-title">A wire protocol,<br>not a <span class="accent">framework.</span></h1>
-    <p class="hero-sub">DistroSync is a distributed task queue built directly on raw TCP sockets â€” no Kafka, no Celery. Every packet above is <b>a real task</b>, moving through the actual broker logic in this system.</p>
+    <p class="hero-sub">DistroSync is a distributed task queue built directly on raw TCP sockets — no Kafka, no Celery. Every packet above is <b>a real task</b>, moving through the actual broker logic in this system.</p>
     <div class="hero-stats">
       <div class="hstat"><div class="hstat-val" style="color:var(--signal)" id="hero-tpm">12,000</div><div class="hstat-lbl">tasks / min</div></div>
       <div class="hstat"><div class="hstat-val" style="color:var(--ink)">17.2ms</div><div class="hstat-lbl">P99 latency</div></div>
@@ -286,17 +286,17 @@ footer{padding:36px 40px;border-top:1px solid var(--wire);display:flex;justify-c
   <div class="sect-inner">
     <div class="eyebrow"><span class="idx">01</span> system design</div>
     <h2 class="sect-title reveal">Three roles. One protocol.</h2>
-    <p class="sect-body reveal">Every component speaks the same 4-byte length-prefixed JSON wire format over raw TCP. No message broker library, no ORM, no framework â€” the protocol is the product.</p>
+    <p class="sect-body reveal">Every component speaks the same 4-byte length-prefixed JSON wire format over raw TCP. No message broker library, no ORM, no framework — the protocol is the product.</p>
     <div class="arch-grid reveal">
       <div class="arch-col">
         <div class="arch-col-lbl">producers</div>
-        <div class="arch-node">Producer A<div class="arch-node-sub">PRODUCE â†’ :5555</div></div>
+        <div class="arch-node">Producer A<div class="arch-node-sub">PRODUCE → :5555</div></div>
         <div class="arch-node">Producer B<div class="arch-node-sub">backoff + jitter on 429</div></div>
         <div class="arch-node">Producer N<div class="arch-node-sub">4-byte length prefix</div></div>
-        <div class="arch-note">Rate-limited producers back off with full jitter â€” randomized wait times prevent every client retrying in the same instant.</div>
+        <div class="arch-note">Rate-limited producers back off with full jitter — randomized wait times prevent every client retrying in the same instant.</div>
       </div>
       <div class="arch-center">
-        <div style="font-family:var(--f-mono);font-size:11px;color:var(--muted);text-align:center;margin-bottom:10px">â† PRODUCE / CONSUME â†’<br>ACK / NACK / HEARTBEAT</div>
+        <div style="font-family:var(--f-mono);font-size:11px;color:var(--muted);text-align:center;margin-bottom:10px">← PRODUCE / CONSUME →<br>ACK / NACK / HEARTBEAT</div>
         <div class="broker-box">
           <div class="broker-title">Broker</div>
           <div class="tag-row">
@@ -307,7 +307,7 @@ footer{padding:36px 40px;border-top:1px solid var(--wire);display:flex;justify-c
             <span class="tag">QueueManager</span>
             <span class="tag">DeadLetterQueue</span>
           </div>
-          <div class="broker-desc">A single event loop handles every connection. Load shedding adapts in real time to queue depth and worker latency â€” the same principle behind TCP congestion control.</div>
+          <div class="broker-desc">A single event loop handles every connection. Load shedding adapts in real time to queue depth and worker latency — the same principle behind TCP congestion control.</div>
         </div>
         <div class="arch-sub-row">
           <div class="arch-sub wal"><b>WAL Store</b>SQLite write-ahead log</div>
@@ -316,10 +316,10 @@ footer{padding:36px 40px;border-top:1px solid var(--wire);display:flex;justify-c
       </div>
       <div class="arch-col">
         <div class="arch-col-lbl">workers</div>
-        <div class="arch-node">Worker 1<div class="arch-node-sub">ProcessPoolExecutor Ã— 4</div></div>
+        <div class="arch-node">Worker 1<div class="arch-node-sub">ProcessPoolExecutor × 4</div></div>
         <div class="arch-node">Worker 2<div class="arch-node-sub">heartbeat every 2s</div></div>
         <div class="arch-node">Worker 3<div class="arch-node-sub">ACK / NACK on result</div></div>
-        <div class="arch-note">CPU-bound work runs in real OS processes â€” Python's GIL makes threads useless for this, so workers bypass it entirely.</div>
+        <div class="arch-note">CPU-bound work runs in real OS processes — Python's GIL makes threads useless for this, so workers bypass it entirely.</div>
       </div>
     </div>
   </div>
@@ -336,15 +336,15 @@ footer{padding:36px 40px;border-top:1px solid var(--wire);display:flex;justify-c
       <div class="dash-top">
         <div style="display:flex;align-items:center">
           <div class="dash-dots"><div class="ddot dd-r"></div><div class="ddot dd-a"></div><div class="ddot dd-g"></div></div>
-          <div class="dash-name">distrosync â€” broker monitor â€” tcp://0.0.0.0:5555</div>
+          <div class="dash-name">distrosync — broker monitor — tcp://0.0.0.0:5555</div>
         </div>
         <div class="live-badge"><div class="live-dot"></div><span id="d-status">idle</span></div>
       </div>
       <div class="dash-metrics">
-        <div class="dm"><div class="dm-val" id="d-tpm">0</div><div class="dm-lbl">tasks / min</div><div class="dm-sub c-neut" id="d-tpm-sub">â€”</div></div>
-        <div class="dm"><div class="dm-val" id="d-p99">â€”</div><div class="dm-lbl">P99 latency ms</div><div class="dm-sub c-neut" id="d-p99-sub">nominal</div></div>
-        <div class="dm"><div class="dm-val" id="d-inf">0</div><div class="dm-lbl">in-flight</div><div class="dm-sub c-neut" id="d-inf-sub">â€”</div></div>
-        <div class="dm"><div class="dm-val" id="d-dlq">0</div><div class="dm-lbl">dead letter queue</div><div class="dm-sub c-neut" id="d-dlq-sub">â€”</div></div>
+        <div class="dm"><div class="dm-val" id="d-tpm">0</div><div class="dm-lbl">tasks / min</div><div class="dm-sub c-neut" id="d-tpm-sub">—</div></div>
+        <div class="dm"><div class="dm-val" id="d-p99">—</div><div class="dm-lbl">P99 latency ms</div><div class="dm-sub c-neut" id="d-p99-sub">nominal</div></div>
+        <div class="dm"><div class="dm-val" id="d-inf">0</div><div class="dm-lbl">in-flight</div><div class="dm-sub c-neut" id="d-inf-sub">—</div></div>
+        <div class="dm"><div class="dm-val" id="d-dlq">0</div><div class="dm-lbl">dead letter queue</div><div class="dm-sub c-neut" id="d-dlq-sub">—</div></div>
       </div>
       <div class="dash-body">
         <div class="dp">
@@ -380,11 +380,11 @@ footer{padding:36px 40px;border-top:1px solid var(--wire);display:flex;justify-c
       </div>
       <div class="dash-ctrl">
         <div class="ctrl-lbl">simulate:</div>
-        <button class="cbtn cb-start" onclick="sim.startLoad()">â–¶ start load</button>
-        <button class="cbtn cb-flood" onclick="sim.floodLoad()">âš¡ 5Ã— overload</button>
-        <button class="cbtn cb-crash" onclick="sim.crashWorker()">âœ• kill worker</button>
-        <button class="cbtn cb-replay" onclick="sim.replayDLQ()">â†© replay dlq</button>
-        <div class="sim-status" id="d-simstatus">idle â€” press start load</div>
+        <button class="cbtn cb-start" onclick="sim.startLoad()">▶ start load</button>
+        <button class="cbtn cb-flood" onclick="sim.floodLoad()">⚡ 5× overload</button>
+        <button class="cbtn cb-crash" onclick="sim.crashWorker()">✕ kill worker</button>
+        <button class="cbtn cb-replay" onclick="sim.replayDLQ()">↩ replay dlq</button>
+        <div class="sim-status" id="d-simstatus">idle — press start load</div>
       </div>
       <div class="dash-foot">
         <div class="df"><div class="df-key">uptime</div><div class="df-val" id="d-uptime">0s</div></div>
@@ -403,14 +403,14 @@ footer{padding:36px 40px;border-top:1px solid var(--wire);display:flex;justify-c
   <div class="sect-inner">
     <div class="eyebrow"><span class="idx">03</span> under the hood</div>
     <h2 class="sect-title reveal">Six mechanisms. Built, not borrowed.</h2>
-    <p class="sect-body reveal">Every one of these exists because a production message queue needs it â€” not because it looked good in a demo.</p>
+    <p class="sect-body reveal">Every one of these exists because a production message queue needs it — not because it looked good in a demo.</p>
     <div class="concepts-grid reveal">
       <div class="cc"><div class="cc-num">01</div><div class="cc-title">asyncio event loop</div><div class="cc-body">A single thread handles thousands of concurrent TCP connections without blocking, using cooperative multitasking instead of one-thread-per-connection.</div><div class="cc-tag">broker/server.py</div></div>
       <div class="cc"><div class="cc-num">02</div><div class="cc-title">ProcessPoolExecutor</div><div class="cc-body">Python's GIL blocks true CPU parallelism with threads. Workers bypass it entirely by running tasks in separate OS processes.</div><div class="cc-tag">worker/task_executor.py</div></div>
-      <div class="cc"><div class="cc-num">03</div><div class="cc-title">Adaptive token bucket</div><div class="cc-body">Fill rate adjusts live to queue depth and worker latency. Under 5Ã— overload it throttles to 5% of normal â€” self-regulation, not a crash.</div><div class="cc-tag">broker/load_shedder.py</div></div>
+      <div class="cc"><div class="cc-num">03</div><div class="cc-title">Adaptive token bucket</div><div class="cc-body">Fill rate adjusts live to queue depth and worker latency. Under 5× overload it throttles to 5% of normal — self-regulation, not a crash.</div><div class="cc-tag">broker/load_shedder.py</div></div>
       <div class="cc"><div class="cc-num">04</div><div class="cc-title">SQLite WAL mode</div><div class="cc-body">Every task state change is appended to a write-ahead log before touching the database. Zero tasks lost across 10 simulated crashes.</div><div class="cc-tag">persistence/wal_store.py</div></div>
-      <div class="cc"><div class="cc-num">05</div><div class="cc-title">Heartbeat eviction</div><div class="cc-body">Workers ping every 2 seconds. Three missed beats evicts the worker and re-queues its in-flight tasks â€” the same pattern Kubernetes uses.</div><div class="cc-tag">broker/worker_registry.py</div></div>
-      <div class="cc"><div class="cc-num">06</div><div class="cc-title">Dead letter queue + replay</div><div class="cc-body">Tasks failing 3 times move to the DLQ instead of vanishing. An operator inspects, fixes the bug, and replays â€” exactly how SQS and RabbitMQ work.</div><div class="cc-tag">broker/dead_letter.py</div></div>
+      <div class="cc"><div class="cc-num">05</div><div class="cc-title">Heartbeat eviction</div><div class="cc-body">Workers ping every 2 seconds. Three missed beats evicts the worker and re-queues its in-flight tasks — the same pattern Kubernetes uses.</div><div class="cc-tag">broker/worker_registry.py</div></div>
+      <div class="cc"><div class="cc-num">06</div><div class="cc-title">Dead letter queue + replay</div><div class="cc-body">Tasks failing 3 times move to the DLQ instead of vanishing. An operator inspects, fixes the bug, and replays — exactly how SQS and RabbitMQ work.</div><div class="cc-tag">broker/dead_letter.py</div></div>
     </div>
   </div>
 </section>
@@ -424,7 +424,7 @@ footer{padding:36px 40px;border-top:1px solid var(--wire);display:flex;justify-c
     <p class="sect-body reveal">50 concurrent producers, 4 workers, 10,000 total tasks, run on a 4-core machine via Docker Compose.</p>
     <div class="bench-grid reveal">
       <div class="big-stat-grid">
-        <div class="bs"><div class="bs-val" style="color:var(--signal)">12,000</div><div class="bs-lbl">tasks / minute</div><div class="bs-sub">50 producers Ã— 200 tasks</div></div>
+        <div class="bs"><div class="bs-val" style="color:var(--signal)">12,000</div><div class="bs-lbl">tasks / minute</div><div class="bs-sub">50 producers × 200 tasks</div></div>
         <div class="bs"><div class="bs-val" style="color:var(--ink)">17.2ms</div><div class="bs-lbl">P99 latency</div><div class="bs-sub">nominal load</div></div>
         <div class="bs"><div class="bs-val" style="color:var(--amber)">0</div><div class="bs-lbl">tasks lost</div><div class="bs-sub">10 simulated crashes</div></div>
         <div class="bs"><div class="bs-val" style="color:var(--ink)">42</div><div class="bs-lbl">tests passing</div><div class="bs-sub">unit + integration + e2e</div></div>
@@ -455,15 +455,15 @@ footer{padding:36px 40px;border-top:1px solid var(--wire);display:flex;justify-c
     <p class="sect-body reveal">From an isolated token-bucket check to a full 10,000-task run with simulated crashes.</p>
     <div class="test-table reveal">
       <div class="test-head"><div>#</div><div>test</div><div>file</div><div>status</div></div>
-      <div class="test-row"><div class="t-num">01</div><div class="t-name">Token bucket fills at correct rate<small>capacity=10, rate=10/s, sleep 0.5s â†’ assert ~5 tokens</small></div><div class="t-file">test_load_shedder.py</div><div><span class="t-pass">PASS</span></div></div>
-      <div class="test-row"><div class="t-num">02</div><div class="t-name">Token bucket capped at capacity<small>rate=100, sleep 0.5s â†’ tokens never exceed capacity</small></div><div class="t-file">test_load_shedder.py</div><div><span class="t-pass">PASS</span></div></div>
-      <div class="test-row"><div class="t-num">08</div><div class="t-name">Length-prefix framing roundtrip<small>encode â†’ decode â†’ assert equal to original dict</small></div><div class="t-file">test_protocol.py</div><div><span class="t-pass">PASS</span></div></div>
+      <div class="test-row"><div class="t-num">01</div><div class="t-name">Token bucket fills at correct rate<small>capacity=10, rate=10/s, sleep 0.5s → assert ~5 tokens</small></div><div class="t-file">test_load_shedder.py</div><div><span class="t-pass">PASS</span></div></div>
+      <div class="test-row"><div class="t-num">02</div><div class="t-name">Token bucket capped at capacity<small>rate=100, sleep 0.5s → tokens never exceed capacity</small></div><div class="t-file">test_load_shedder.py</div><div><span class="t-pass">PASS</span></div></div>
+      <div class="test-row"><div class="t-num">08</div><div class="t-name">Length-prefix framing roundtrip<small>encode → decode → assert equal to original dict</small></div><div class="t-file">test_protocol.py</div><div><span class="t-pass">PASS</span></div></div>
       <div class="test-row"><div class="t-num">10</div><div class="t-name">QueueManager preserves FIFO order<small>enqueue 10, dequeue 10, assert order 0..9</small></div><div class="t-file">test_queue_manager.py</div><div><span class="t-pass">PASS</span></div></div>
-      <div class="t-more">â‹¯ 32 more tests: relevance grading, WAL concurrent writes, process-pool crash recovery, 1000 concurrent connections, DLQ replay under load</div>
-      <div class="test-row"><div class="t-num">19</div><div class="t-name">Dead worker tasks are reassigned<small>kill worker mid-task â†’ wait eviction â†’ new worker â†’ all 5 complete</small></div><div class="t-file">test_broker_worker.py</div><div><span class="t-pass">PASS</span></div></div>
-      <div class="test-row"><div class="t-num">25</div><div class="t-name">Tasks survive broker restart<small>produce 10, kill broker, restart, start worker â†’ all 10 processed</small></div><div class="t-file">test_crash_recovery.py</div><div><span class="t-pass">PASS</span></div></div>
-      <div class="test-row"><div class="t-num">31</div><div class="t-name">Throughput benchmark: 12,000 tasks/min<small>50 producers Ã— 200 tasks Ã— 4 workers, measure wall clock</small></div><div class="t-file">test_performance.py</div><div><span class="t-pass">PASS</span></div></div>
-      <div class="test-row"><div class="t-num">42</div><div class="t-name">End-to-end: 10,000 tasks, 2 worker crashes<small>all processed Â· P99 &lt; 60ms Â· DLQ = 0 Â· 0 broker restarts</small></div><div class="t-file">test_e2e.py</div><div><span class="t-pass">PASS</span></div></div>
+      <div class="t-more">⋯ 32 more tests: relevance grading, WAL concurrent writes, process-pool crash recovery, 1000 concurrent connections, DLQ replay under load</div>
+      <div class="test-row"><div class="t-num">19</div><div class="t-name">Dead worker tasks are reassigned<small>kill worker mid-task → wait eviction → new worker → all 5 complete</small></div><div class="t-file">test_broker_worker.py</div><div><span class="t-pass">PASS</span></div></div>
+      <div class="test-row"><div class="t-num">25</div><div class="t-name">Tasks survive broker restart<small>produce 10, kill broker, restart, start worker → all 10 processed</small></div><div class="t-file">test_crash_recovery.py</div><div><span class="t-pass">PASS</span></div></div>
+      <div class="test-row"><div class="t-num">31</div><div class="t-name">Throughput benchmark: 12,000 tasks/min<small>50 producers × 200 tasks × 4 workers, measure wall clock</small></div><div class="t-file">test_performance.py</div><div><span class="t-pass">PASS</span></div></div>
+      <div class="test-row"><div class="t-num">42</div><div class="t-name">End-to-end: 10,000 tasks, 2 worker crashes<small>all processed · P99 &lt; 60ms · DLQ = 0 · 0 broker restarts</small></div><div class="t-file">test_e2e.py</div><div><span class="t-pass">PASS</span></div></div>
     </div>
     <div class="test-summary reveal">
       <span>$ pytest tests/ -v</span>
@@ -481,7 +481,7 @@ footer{padding:36px 40px;border-top:1px solid var(--wire);display:flex;justify-c
   <div class="cta-glow"></div>
   <div class="eyebrow" style="display:flex;justify-content:center">open source</div>
   <h2 class="cta-title reveal">One command. Full system.</h2>
-  <p class="cta-sub reveal">Clone it, compose up, watch the dashboard come alive â€” the same one on this page, running for real.</p>
+  <p class="cta-sub reveal">Clone it, compose up, watch the dashboard come alive — the same one on this page, running for real.</p>
   <div class="cta-btns reveal">
     <a href="https://github.com/udayraj1238/DistroSync" target="_blank" class="btn-signal">view on github</a>
     <a href="#dashboard" class="btn-ghost">try the demo above</a>
@@ -505,16 +505,16 @@ footer{padding:36px 40px;border-top:1px solid var(--wire);display:flex;justify-c
     <a href="#dashboard">dashboard</a>
     <a href="#benchmarks">benchmarks</a>
   </div>
-  <div class="footer-copy">built on raw sockets Â· python Â· no framework</div>
+  <div class="footer-copy">built on raw sockets · python · no framework</div>
 </footer>
 
 <script type="module">
 /* ============================================================
-   THREE.JS HERO â€” literal visualization of the actual system:
+   THREE.JS HERO — literal visualization of the actual system:
    particles (tasks) flow from producers, through the broker core,
    out to workers. Color = task state. This IS the product, not decoration.
 
-   Loaded as an ES module â€” modern Three.js (r150+) no longer ships
+   Loaded as an ES module — modern Three.js (r150+) no longer ships
    a global-namespace UMD build, only ES modules.
 ============================================================ */
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.184.0/three.module.min.js';
@@ -553,7 +553,7 @@ import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.184.0/
     camera = new THREE.PerspectiveCamera(52, window.innerWidth/window.innerHeight, 0.1, 100);
     camera.position.set(0, 0, isSmall ? 13 : 10.5);
 
-    // Broker core â€” rotating wireframe icosahedron
+    // Broker core — rotating wireframe icosahedron
     const coreGeo = new THREE.IcosahedronGeometry(1.5, 1);
     const coreMat = new THREE.MeshBasicMaterial({ color: 0x47ffa6, wireframe: true, transparent: true, opacity: 0.55 });
     core = new THREE.Mesh(coreGeo, coreMat);
@@ -565,7 +565,7 @@ import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.184.0/
     coreGlow.scale.set(1.3,1.3,1.3);
     scene.add(coreGlow);
 
-    // Particle system â€” each particle is one "task" with its own path + state
+    // Particle system — each particle is one "task" with its own path + state
     const positions = new Float32Array(PARTICLE_COUNT * 3);
     const colors = new Float32Array(PARTICLE_COUNT * 3);
     const sizes = new Float32Array(PARTICLE_COUNT);
@@ -654,7 +654,7 @@ import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.184.0/
       posAttr.array[i*3+1] = pos.y;
       posAttr.array[i*3+2] = pos.z;
 
-      // flicker danger particles near the end of their path (dead-lettered â†’ reabsorbed)
+      // flicker danger particles near the end of their path (dead-lettered → reabsorbed)
       if (p.state === 'danger' && p.t > 0.75){
         const flicker = Math.sin(t*30 + i) > 0 ? 1 : 0.2;
         colorAttr.array[i*3] = p.color.r * flicker;
@@ -684,7 +684,7 @@ import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.184.0/
 })();
 
 /* ============================================================
-   GSAP SCROLL REVEALS â€” one consistent choreographed pattern
+   GSAP SCROLL REVEALS — one consistent choreographed pattern
 ============================================================ */
 (function(){
   if (typeof gsap === 'undefined') return;
@@ -845,7 +845,7 @@ var sim = (function() {
     S.history.shift();
 
     _set('d-tpm', Math.round(tpm).toLocaleString());
-    _set('d-p99', p99 > 0 ? p99 : 'ΓÇö');
+    _set('d-p99', p99 > 0 ? p99 : '—');
     _set('d-inf', inflight);
     _set('d-dlq', dlqCount);
     _set('d-total-q', totalQ + ' total');
@@ -857,7 +857,7 @@ var sim = (function() {
     _set('d-proc', totalProc.toLocaleString());
     
     _set('d-evict', M.workers ? M.workers.evicted_count : 0);
-    _set('d-rej', M.load_shedder ? M.load_shedder.total_rejected.toLocaleString() : 'ΓÇö');
+    _set('d-rej', M.load_shedder ? M.load_shedder.total_rejected.toLocaleString() : '—');
     _set('d-restarts', 0);
 
     const p99el = document.getElementById('d-p99');
@@ -865,7 +865,7 @@ var sim = (function() {
     
     const p99sub = document.getElementById('d-p99-sub');
     if (p99sub) {
-      p99sub.textContent = p99 > 200 ? 'Γåæ elevated' : p99 > 0 ? 'nominal' : 'ΓÇö';
+      p99sub.textContent = p99 > 200 ? '↑ elevated' : p99 > 0 ? 'nominal' : '—';
       p99sub.className = 'dm-sub ' + (p99 > 200 ? 'c-err' : p99 > 80 ? 'c-warn' : 'c-neut');
     }
     
@@ -892,7 +892,7 @@ var sim = (function() {
         <div class="w-dot wi-active"></div>
         <div class="w-id">${w.id}</div>
         <div class="w-lat">${w.latency_ms > 0 ? Math.round(w.latency_ms) + 'ms' : ''}</div>
-        <div class="w-cnt">ΓÇö</div>
+        <div class="w-cnt">—</div>
         <div class="w-badge wb-a">${w.status}</div>
       </div>`).join('');
 
