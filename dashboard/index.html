@@ -47,7 +47,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:200;background:rgba(8,11,9,.82);
 @media(max-width:820px){.nav-links{display:none}}
 
 /* ===== HERO — 3D canvas + type ===== */
-.hero{position:relative;min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:120px 40px 60px;text-align:center;overflow:hidden}
+.hero{position:relative;min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0 40px;text-align:center;overflow:hidden}
 #hero-canvas{position:absolute;inset:0;z-index:0;opacity:0;transition:opacity 1.8s ease}
 #hero-canvas.ready{opacity:1}
 .hero-content{position:relative;z-index:2;pointer-events:none}
@@ -230,7 +230,7 @@ footer{padding:28px 40px;border-top:1px solid var(--wire);display:flex;justify-c
 }
 
 @media(max-width:860px){
-  .hero{padding:100px 20px 50px}
+  .hero{padding:0 20px}
   section{padding:70px 20px}
   .arch-grid{grid-template-columns:1fr}
   .dash-metrics{grid-template-columns:1fr 1fr}
