@@ -384,6 +384,7 @@ footer{padding:36px 40px;border-top:1px solid var(--wire);display:flex;justify-c
         <button class="cbtn cb-flood" onclick="sim.floodLoad()">⚡ 5× overload</button>
         <button class="cbtn cb-crash" onclick="sim.crashWorker()">✕ kill worker</button>
         <button class="cbtn cb-replay" onclick="sim.replayDLQ()">↩ replay dlq</button>
+        <button class="cbtn cb-reset" onclick="sim.resetSystem()" style="background:var(--bg-3);color:var(--danger)">⟲ reset</button>
         <div class="sim-status" id="d-simstatus">idle — press start load</div>
       </div>
       <div class="dash-foot">
@@ -910,7 +911,7 @@ var sim = (function() {
         
         const pct = Math.max(0, Math.min(100, (bucket.tokens / bucket.capacity) * 100));
         const tbBar = document.getElementById('d-tb-bar');
-        if (tbBar) { tbBar.style.width = pct + '%'; tbBar.style.background = pct < 20 ? 'var(--red)' : 'var(--teal)'; }
+        if (tbBar) { tbBar.style.width = pct + '%'; tbBar.style.background = pct < 20 ? 'var(--danger)' : 'var(--signal)'; }
         
         const tbSt = document.getElementById('d-tb-status');
         if (tbSt) {
@@ -930,9 +931,9 @@ var sim = (function() {
       _set('d-rate', 100);
       _set('d-tb-rate-lbl', '100 tokens/sec');
       const tbBar = document.getElementById('d-tb-bar');
-      if (tbBar) { tbBar.style.width = '100%'; tbBar.style.background = 'var(--teal)'; }
+      if (tbBar) { tbBar.style.width = '100%'; tbBar.style.background = 'var(--signal)'; }
       const tbSt = document.getElementById('d-tb-status');
-      if (tbSt) { tbSt.textContent = 'accepting requests'; tbSt.style.background = 'rgba(62,207,174,.08)'; tbSt.style.color = 'var(--teal)'; }
+      if (tbSt) { tbSt.textContent = 'accepting requests'; tbSt.style.background = 'var(--signal-dim)'; tbSt.style.color = 'var(--signal)'; }
     }
 
     _set('d-dlq-count2', dlqCount);
