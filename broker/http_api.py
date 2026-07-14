@@ -37,8 +37,6 @@ from typing import Optional, Callable
 
 logger = logging.getLogger(__name__)
 
-ADMIN_KEY = os.environ.get("ADMIN_KEY", "")
-
 # Path to the dashboard HTML file (relative to project root)
 DASHBOARD_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -124,14 +122,9 @@ class HTTPAPIServer:
                 )
                 return
 
-            # Authentication required for all admin routes
+            # No authentication required - portfolio demo is completely open
             if path.startswith("/admin/"):
-                headers = self._parse_headers(request_text)
-                auth_token = headers.get("x-admin-key", "")
-                if not ADMIN_KEY or auth_token != ADMIN_KEY:
-                    logger.warning(f"Unauthorized admin attempt on {path} from {addr}")
-                    await self._send_response(writer, 401, {"error": "Unauthorized"})
-                    return
+                pass
 
 
 
