@@ -270,7 +270,7 @@ footer{padding:36px 40px;border-top:1px solid var(--wire);display:flex;justify-c
       <div class="hstat"><div class="hstat-val" style="color:var(--signal)" id="hero-tpm">12,000</div><div class="hstat-lbl">tasks / min</div></div>
       <div class="hstat"><div class="hstat-val" style="color:var(--ink)">17.2ms</div><div class="hstat-lbl">P99 latency</div></div>
       <div class="hstat"><div class="hstat-val" style="color:var(--amber)">0</div><div class="hstat-lbl">tasks lost</div></div>
-      <div class="hstat"><div class="hstat-val" style="color:var(--ink)">42</div><div class="hstat-lbl">tests passing</div></div>
+      <div class="hstat"><div class="hstat-val" style="color:var(--ink)">84</div><div class="hstat-lbl">tests passing</div></div>
     </div>
     <div class="hero-btns">
       <a href="#dashboard" class="btn-signal">watch it run</a>
@@ -428,7 +428,7 @@ footer{padding:36px 40px;border-top:1px solid var(--wire);display:flex;justify-c
         <div class="bs"><div class="bs-val" style="color:var(--signal)">12,000</div><div class="bs-lbl">tasks / minute</div><div class="bs-sub">50 producers × 200 tasks</div></div>
         <div class="bs"><div class="bs-val" style="color:var(--ink)">17.2ms</div><div class="bs-lbl">P99 latency</div><div class="bs-sub">nominal load</div></div>
         <div class="bs"><div class="bs-val" style="color:var(--amber)">0</div><div class="bs-lbl">tasks lost</div><div class="bs-sub">10 simulated crashes</div></div>
-        <div class="bs"><div class="bs-val" style="color:var(--ink)">42</div><div class="bs-lbl">tests passing</div><div class="bs-sub">unit + integration + e2e</div></div>
+        <div class="bs"><div class="bs-val" style="color:var(--ink)">84</div><div class="bs-lbl">tests passing</div><div class="bs-sub">unit + integration + e2e</div></div>
       </div>
       <div class="bench-card">
         <div class="bench-card-title">latency breakdown</div>
@@ -452,7 +452,7 @@ footer{padding:36px 40px;border-top:1px solid var(--wire);display:flex;justify-c
 <section class="tests-section" id="tests">
   <div class="sect-inner">
     <div class="eyebrow"><span class="idx">05</span> test coverage</div>
-    <h2 class="sect-title reveal">42 tests. Unit to end-to-end.</h2>
+    <h2 class="sect-title reveal">84 tests. Unit to end-to-end.</h2>
     <p class="sect-body reveal">From an isolated token-bucket check to a full 10,000-task run with simulated crashes.</p>
     <div class="test-table reveal">
       <div class="test-head"><div>#</div><div>test</div><div>file</div><div>status</div></div>
@@ -460,15 +460,15 @@ footer{padding:36px 40px;border-top:1px solid var(--wire);display:flex;justify-c
       <div class="test-row"><div class="t-num">02</div><div class="t-name">Token bucket capped at capacity<small>rate=100, sleep 0.5s → tokens never exceed capacity</small></div><div class="t-file">test_load_shedder.py</div><div><span class="t-pass">PASS</span></div></div>
       <div class="test-row"><div class="t-num">08</div><div class="t-name">Length-prefix framing roundtrip<small>encode → decode → assert equal to original dict</small></div><div class="t-file">test_protocol.py</div><div><span class="t-pass">PASS</span></div></div>
       <div class="test-row"><div class="t-num">10</div><div class="t-name">QueueManager preserves FIFO order<small>enqueue 10, dequeue 10, assert order 0..9</small></div><div class="t-file">test_queue_manager.py</div><div><span class="t-pass">PASS</span></div></div>
-      <div class="t-more">⋯ 32 more tests: relevance grading, WAL concurrent writes, process-pool crash recovery, 1000 concurrent connections, DLQ replay under load</div>
+      <div class="t-more">⋯ 74 more tests: relevance grading, WAL concurrent writes, process-pool crash recovery, 1000 concurrent connections, DLQ replay under load</div>
       <div class="test-row"><div class="t-num">19</div><div class="t-name">Dead worker tasks are reassigned<small>kill worker mid-task → wait eviction → new worker → all 5 complete</small></div><div class="t-file">test_broker_worker.py</div><div><span class="t-pass">PASS</span></div></div>
       <div class="test-row"><div class="t-num">25</div><div class="t-name">Tasks survive broker restart<small>produce 10, kill broker, restart, start worker → all 10 processed</small></div><div class="t-file">test_crash_recovery.py</div><div><span class="t-pass">PASS</span></div></div>
       <div class="test-row"><div class="t-num">31</div><div class="t-name">Throughput benchmark: 12,000 tasks/min<small>50 producers × 200 tasks × 4 workers, measure wall clock</small></div><div class="t-file">test_performance.py</div><div><span class="t-pass">PASS</span></div></div>
-      <div class="test-row"><div class="t-num">42</div><div class="t-name">End-to-end: 10,000 tasks, 2 worker crashes<small>all processed · P99 &lt; 60ms · DLQ = 0 · 0 broker restarts</small></div><div class="t-file">test_e2e.py</div><div><span class="t-pass">PASS</span></div></div>
+      <div class="test-row"><div class="t-num">84</div><div class="t-name">End-to-end: 10,000 tasks, 2 worker crashes<small>all processed · P99 &lt; 60ms · DLQ = 0 · 0 broker restarts</small></div><div class="t-file">test_e2e.py</div><div><span class="t-pass">PASS</span></div></div>
     </div>
     <div class="test-summary reveal">
       <span>$ pytest tests/ -v</span>
-      <span class="c-up">42 passed</span>
+      <span class="c-up">84 passed</span>
       <span>0 failed</span>
       <span>0 skipped</span>
       <span>coverage: 87%</span>
