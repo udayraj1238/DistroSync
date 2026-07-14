@@ -37,6 +37,8 @@ from typing import Optional, Callable
 
 logger = logging.getLogger(__name__)
 
+ADMIN_KEY = os.environ.get("ADMIN_KEY", "")
+
 # Path to the dashboard HTML file (relative to project root)
 DASHBOARD_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -82,6 +84,17 @@ class HTTPAPIServer:
         self._server: Optional[asyncio.Server] = None
         self._active_loads = []
 
+    def _parse_headers(self, request_text: str) -> dict:
+        headers = {}
+        lines = request_text.split("\r\n")
+        for line in lines[1:]:
+            if not line:
+                break
+            if ":" in line:
+                key, val = line.split(":", 1)
+                headers[key.strip().lower()] = val.strip()
+        return headers
+
     async def handle_connection(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ):
@@ -111,9 +124,14 @@ class HTTPAPIServer:
                 )
                 return
 
-            # No authentication required - portfolio demo is completely open
+            # Authentication required for all admin routes
             if path.startswith("/admin/"):
-                pass
+                headers = self._parse_headers(request_text)
+                auth_token = headers.get("x-admin-key", "")
+                if not ADMIN_KEY or auth_token != ADMIN_KEY:
+                    logger.warning(f"Unauthorized admin attempt on {path} from {addr}")
+                    await self._send_response(writer, 401, {"error": "Unauthorized"})
+                    return
 
 
 

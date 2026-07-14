@@ -302,6 +302,42 @@ async def test_stats():
     assert resp["active_connections"] == 0
 
 
+async def test_admin_route_rejects_missing_key():
+    """Test 11: HTTP API rejects /admin/ routes if x-admin-key is missing or wrong."""
+    from broker.http_api import HTTPAPIServer
+    import broker.http_api
+    
+    # Force an admin key for testing
+    old_key = broker.http_api.ADMIN_KEY
+    broker.http_api.ADMIN_KEY = "test-secret"
+    
+    api = HTTPAPIServer()
+    
+    class MockReader:
+        async def read(self, n):
+            return b"POST /admin/reset HTTP/1.1\r\nHost: localhost\r\n\r\n"
+            
+    class MockWriter:
+        def __init__(self):
+            self.output = b""
+        def get_extra_info(self, key):
+            return ("127.0.0.1", 9999)
+        def write(self, data):
+            self.output += data
+        async def drain(self):
+            pass
+        def close(self):
+            pass
+            
+    writer = MockWriter()
+    await api.handle_connection(MockReader(), writer)
+    
+    # Restore key
+    broker.http_api.ADMIN_KEY = old_key
+    
+    assert b"HTTP/1.1 401 " in writer.output, f"Expected 401, got {writer.output}"
+
+
 if __name__ == "__main__":
     import logging
     logging.getLogger("broker").setLevel(logging.WARNING)
@@ -318,6 +354,7 @@ if __name__ == "__main__":
         ("DLQ_PURGE all", test_dlq_purge_all),
         ("DLQ_PURGE by queue", test_dlq_purge_by_queue),
         ("STATS aggregated", test_stats),
+        ("HTTP API rejects missing auth", test_admin_route_rejects_missing_key),
     ]
 
     passed = 0

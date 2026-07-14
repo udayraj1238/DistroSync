@@ -752,9 +752,13 @@ var sim = (function() {
     if (el) el.textContent = val;
   }
 
+  let adminKey = null;
   async function post(url) {
+    if (!adminKey) { adminKey = prompt("Admin key:"); if (!adminKey) return; }
     try {
-      const res = await fetch(url, { method: 'POST' });
+      const res = await fetch(url, { method: 'POST', headers:{'X-Admin-Key':adminKey} });
+      if (res.status === 401) { adminKey = null; log('err', 'Unauthorized'); return; }
+      
       const data = await res.json();
       
       if (data.status !== 'ok') {
