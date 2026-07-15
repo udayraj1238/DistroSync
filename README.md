@@ -43,3 +43,11 @@ Under heavy concurrent load (10,000 tasks, 50 concurrent producers, 4 workers):
 - **Resilience & Reliability:** Dead Letter Queues (DLQ), explicit ACK/NACK signaling, and configurable retry exponential backoffs.
 - **Heartbeat & Eviction:** Worker nodes maintain TCP heartbeats. Dead nodes are evicted and their in-flight tasks are instantly re-queued to active workers.
 
+## Running Tests
+
+To run the test suite, ensure you have the required test dependencies installed:
+
+```bash
+pip install pytest pytest-asyncio
+pytest tests/ -v
+```

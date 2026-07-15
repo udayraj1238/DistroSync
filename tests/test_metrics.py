@@ -192,7 +192,7 @@ async def test_metrics_command():
     assert "workers" in resp
     assert "broker" in resp
     assert "dlq" in resp
-    assert resp["workers"]["active_count"] == 1
+    assert len(resp["workers"]["active"]) == 1
     assert "tasks" in resp["queues"]
     assert resp["queues"]["tasks"]["depth"] == 1
     assert resp["queues"]["tasks"]["total_produced"] == 1
