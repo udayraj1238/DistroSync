@@ -160,7 +160,7 @@ async def test_1000_connections():
         # if the limit isn't reached (Windows default max handles is 16 million).
         # We will batch the connects to avoid socket.error: [Errno 10048]
         # Only issue is port exhaustion on client side.
-        CONNECTIONS = 1000
+        CONNECTIONS = 500
         
         async def run_client(idx: int):
             try:

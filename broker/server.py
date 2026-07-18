@@ -770,7 +770,7 @@ class BrokerServer:
 
         # ── Phase 2: Start the TCP server ─────────────────────────
         self._server = await asyncio.start_server(
-            self.handle_connection, self.host, self.port
+            self.handle_connection, self.host, self.port, backlog=1024
         )
 
         # ── Phase 3: Start the HTTP dashboard/metrics API ─────────
