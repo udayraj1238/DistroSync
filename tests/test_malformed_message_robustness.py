@@ -178,7 +178,7 @@ async def test_1000_connections():
         # We will spawn them in batches of 200
         active_clients = []
         for i in range(0, CONNECTIONS, 200):
-            batch = [run_client(idx) for idx in range(i, i + 200)]
+            batch = [run_client(idx) for idx in range(i, min(i + 200, CONNECTIONS))]
             results = await asyncio.gather(*batch)
             for res in results:
                 if isinstance(res, Exception):

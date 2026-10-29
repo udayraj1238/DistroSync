@@ -80,6 +80,12 @@ async def test_throughput_benchmark():
     """
     port = PORT_BASE
     broker = BrokerServer(host="127.0.0.1", port=port, http_port=port + 1000)
+
+    # Measure raw broker capacity: lift the token bucket so the default
+    # 100 tasks/sec shedding budget doesn't cap the benchmark itself.
+    broker.load_shedder.BUCKET_CAPACITY = 1e9
+    broker.load_shedder.BASE_FILL_RATE = 1e9
+
     server_task = asyncio.create_task(broker.start())
     await asyncio.sleep(0.5)
 

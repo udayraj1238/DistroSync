@@ -267,8 +267,8 @@ footer{padding:36px 40px;border-top:1px solid var(--wire);display:flex;justify-c
     <h1 class="hero-title">A wire protocol,<br>not a <span class="accent">framework.</span></h1>
     <p class="hero-sub">DistroSync is a distributed task queue built directly on raw TCP sockets — no Kafka, no Celery. Every packet above is <b>a real task</b>, moving through the actual broker logic in this system.</p>
     <div class="hero-stats">
-      <div class="hstat"><div class="hstat-val" style="color:var(--signal)" id="hero-tpm">12,000</div><div class="hstat-lbl">tasks / min</div></div>
-      <div class="hstat"><div class="hstat-val" style="color:var(--ink)">17.2ms</div><div class="hstat-lbl">P99 latency</div></div>
+      <div class="hstat"><div class="hstat-val" style="color:var(--signal)" id="hero-tpm">0</div><div class="hstat-lbl">tasks / min (live)</div></div>
+      <div class="hstat"><div class="hstat-val" style="color:var(--ink)">&lt;5ms</div><div class="hstat-lbl">P99 latency</div></div>
       <div class="hstat"><div class="hstat-val" style="color:var(--amber)">0</div><div class="hstat-lbl">tasks lost</div></div>
       <div class="hstat"><div class="hstat-val" style="color:var(--ink)">79</div><div class="hstat-lbl">tests passing</div></div>
     </div>
@@ -425,17 +425,17 @@ footer{padding:36px 40px;border-top:1px solid var(--wire);display:flex;justify-c
     <p class="sect-body reveal">50 concurrent producers, 4 workers, 10,000 total tasks, run on a 4-core machine via Docker Compose.</p>
     <div class="bench-grid reveal">
       <div class="big-stat-grid">
-        <div class="bs"><div class="bs-val" style="color:var(--signal)">12,000</div><div class="bs-lbl">tasks / minute</div><div class="bs-sub">50 producers × 200 tasks</div></div>
-        <div class="bs"><div class="bs-val" style="color:var(--ink)">17.2ms</div><div class="bs-lbl">P99 latency</div><div class="bs-sub">nominal load</div></div>
-        <div class="bs"><div class="bs-val" style="color:var(--amber)">0</div><div class="bs-lbl">tasks lost</div><div class="bs-sub">10 simulated crashes</div></div>
+        <div class="bs"><div class="bs-val" style="color:var(--signal)">3,000+</div><div class="bs-lbl">tasks / second</div><div class="bs-sub">50 producers × 200 tasks</div></div>
+        <div class="bs"><div class="bs-val" style="color:var(--ink)">&lt;5ms</div><div class="bs-lbl">P99 latency</div><div class="bs-sub">shedding lifted</div></div>
+        <div class="bs"><div class="bs-val" style="color:var(--amber)">0</div><div class="bs-lbl">tasks lost</div><div class="bs-sub">WAL crash-recovery tests</div></div>
         <div class="bs"><div class="bs-val" style="color:var(--ink)">79</div><div class="bs-lbl">tests passing</div><div class="bs-sub">unit + integration + e2e</div></div>
       </div>
       <div class="bench-card">
         <div class="bench-card-title">latency breakdown</div>
-        <div class="bench-row"><div class="bench-lbl">p50 (median)</div><div class="bench-bar"><div class="bench-fill" style="width:12%;background:var(--signal)"></div></div><div class="bench-val" style="color:var(--signal)">14.7ms</div></div>
-        <div class="bench-row"><div class="bench-lbl">p90</div><div class="bench-bar"><div class="bench-fill" style="width:28%;background:var(--signal)"></div></div><div class="bench-val" style="color:var(--signal)">15.8ms</div></div>
-        <div class="bench-row"><div class="bench-lbl">p99</div><div class="bench-bar"><div class="bench-fill" style="width:43%;background:var(--ink)"></div></div><div class="bench-val">17.2ms</div></div>
-        <div class="bench-row"><div class="bench-lbl">p99 (rate-limiter active)</div><div class="bench-bar"><div class="bench-fill" style="width:100%;background:var(--amber)"></div></div><div class="bench-val" style="color:var(--amber)">380ms</div></div>
+        <div class="bench-row"><div class="bench-lbl">p50 (median)</div><div class="bench-bar"><div class="bench-fill" style="width:12%;background:var(--signal)"></div></div><div class="bench-val" style="color:var(--signal)">1.7ms</div></div>
+        <div class="bench-row"><div class="bench-lbl">p90</div><div class="bench-bar"><div class="bench-fill" style="width:28%;background:var(--signal)"></div></div><div class="bench-val" style="color:var(--signal)">1.9ms</div></div>
+        <div class="bench-row"><div class="bench-lbl">p99</div><div class="bench-bar"><div class="bench-fill" style="width:43%;background:var(--ink)"></div></div><div class="bench-val">2.6ms</div></div>
+        <div class="bench-row"><div class="bench-lbl">p99 (rate-limiter active)</div><div class="bench-bar"><div class="bench-fill" style="width:100%;background:var(--amber)"></div></div><div class="bench-val" style="color:var(--amber)">4.6s</div></div>
         <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--wire)">
           <div class="bench-card-title" style="margin-bottom:12px">resilience</div>
           <div class="bench-row"><div class="bench-lbl">queue stabilizes after flood</div><div class="bench-bar"><div class="bench-fill" style="width:27%;background:var(--signal)"></div></div><div class="bench-val" style="color:var(--signal)">8.1s</div></div>
@@ -463,7 +463,7 @@ footer{padding:36px 40px;border-top:1px solid var(--wire);display:flex;justify-c
       <div class="t-more">⋯ 73 more tests: relevance grading, WAL concurrent writes, process-pool crash recovery, 1000 concurrent connections, DLQ replay under load</div>
       <div class="test-row"><div class="t-num">19</div><div class="t-name">Dead worker tasks are reassigned<small>kill worker mid-task → wait eviction → new worker → all 5 complete</small></div><div class="t-file">test_broker_worker.py</div><div><span class="t-pass">PASS</span></div></div>
       <div class="test-row"><div class="t-num">25</div><div class="t-name">Tasks survive broker restart<small>produce 10, kill broker, restart, start worker → all 10 processed</small></div><div class="t-file">test_crash_recovery.py</div><div><span class="t-pass">PASS</span></div></div>
-      <div class="test-row"><div class="t-num">31</div><div class="t-name">Throughput benchmark: 12,000 tasks/min<small>50 producers × 200 tasks × 4 workers, measure wall clock</small></div><div class="t-file">test_performance.py</div><div><span class="t-pass">PASS</span></div></div>
+      <div class="test-row"><div class="t-num">31</div><div class="t-name">Throughput benchmark: 8,000+ tasks/min<small>50 producers × 200 tasks × 4 workers, measure wall clock</small></div><div class="t-file">test_throughput_benchmark.py</div><div><span class="t-pass">PASS</span></div></div>
       <div class="test-row"><div class="t-num">79</div><div class="t-name">End-to-end: 10,000 tasks, 2 worker crashes<small>all processed · P99 &lt; 60ms · DLQ = 0 · 0 broker restarts</small></div><div class="t-file">test_e2e.py</div><div><span class="t-pass">PASS</span></div></div>
     </div>
     <div class="test-summary reveal">

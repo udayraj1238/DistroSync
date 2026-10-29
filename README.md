@@ -27,15 +27,16 @@ Then open your browser to [http://localhost:8000/dashboard](http://localhost:800
 
 ## Benchmark Results
 
-Under heavy concurrent load (10,000 tasks, 50 concurrent producers, 4 workers):
+10,000 tasks from 50 concurrent producers to 4 echo workers on localhost (2-vCPU Linux VM, Python 3.13).
+Reproduce with `python -m benchmarks.raw_throughput` (add `--shedding` for the default rate limit).
 
-| Metric | Result |
-|--------|--------|
-| **Total Tasks** | 10,000 |
-| **P50 Latency** | ~14.7 ms |
-| **P99 Latency** | ~17.2 ms |
-| **Throughput** | ~12,000 tasks / min (200/sec) |
-| **Rejection Rate** | < 1% (Adaptive shedding dynamically managed load) |
+| Mode | Throughput | P50 / P99 PRODUCE latency | Delivered |
+|------|-----------|---------------------------|-----------|
+| Load shedding lifted (raw broker) | 3,000-10,000 tasks/sec across runs | 1.6-2.4 ms / 2.3-4.9 ms | 10,000 / 10,000 |
+| Default shedding (100 tokens/sec, burst 200) | ~100 tasks/sec (by design) | backoff-dominated | 9,996 / 10,000 |
+
+With shedding on, about 38% of first attempts are throttled; producers back off with jitter and retry,
+so only 4 of 10,000 tasks are dropped after exhausting 5 retries.
 
 ## Concepts Demonstrated
 - **Distributed Architecture:** Producer -> TCP Broker -> Consumer.
